@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-Channel::Channel ( void ){
+Channel::Channel ( void ) {
 
 }
 
@@ -163,9 +163,16 @@ int Channel::check_op( int cli_fd ) {
 
 int Channel::check_client( int cli_fd ) {
   // OR USE FIND WHATEVER.
+  printf("PENIS1\n");
+  if (_ops.empty())
+    return 0;
+  printf("PENIS2\n");
   for (std::vector<int>::iterator it = _ops.begin(); it != _ops.end(); it++) {
-    if (cli_fd == *it)
+    if (cli_fd == *it && printf("HURENSOHN\n"))
       return 1;
   }
   return 0;
 }
+
+
+
