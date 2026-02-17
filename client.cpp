@@ -2,8 +2,7 @@
 #include <string.h>
 
 
-Client::Client ( void ) : _buf(NULL){
-  _buf = (char *)calloc(sizeof(char), 1024 + 1);
+Client::Client ( void ) {
   _nick = "*";
   _channel_count = 0;
 }
@@ -14,8 +13,6 @@ Client::Client ( void ) : _buf(NULL){
 // Client::Client & operator = ( Client & orig );
 
 Client::~Client ( ) {
-  if (_buf)
-    free(_buf);
 }
 
 void Client::set_pass_set( bool value ) {
@@ -52,13 +49,12 @@ void Client::set_host( unsigned long ip_addr ) { // network-bite order
   _host = std::string(buf);
 }
 
-void Client::set_buf( char *buf ) {
-  bzero(_buf, strlen(_buf));
-  strncpy(_buf, buf, strlen(buf));
+void Client::set_buf( std::string buf ) {
+  _buf = buf;
 }
 
 void Client::clear_buf( void ) {
-  bzero(_buf, strlen(_buf));
+  _buf = "";
 }
 
 // void Client::set_channel( Channel *channel ) {
@@ -78,7 +74,7 @@ void Client::set_channel( std::string channel ) {
 }
 
 
-char* Client::get_buf( void ) {
+std::string Client::get_buf( void ) {
   return _buf;
 }
 
@@ -97,9 +93,9 @@ std::string Client::get_nick( void ) {
 std::string Client::get_prefix( void ) {
   std::string ret;
 
-  printf("NICK: %s\n", _nick.c_str());
-  printf("USER: %s\n", _user.c_str());
-  printf("HOST: %s\n", _host.c_str());
+  // printf("NICK: %s\n", _nick.c_str());
+  // printf("USER: %s\n", _user.c_str());
+  // printf("HOST: %s\n", _host.c_str());
   ret = ":" + _nick + "!~" + _user + "@" + _host;
   return ret;
 }

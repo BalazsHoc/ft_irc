@@ -39,8 +39,12 @@ std::string Channel::get_name( void ) {
   return _channel_name;
 }
 
-std::vector<int> Channel::get_clients( void  ) const {
+std::map<int, std::string> Channel::get_clients( void  ) const {
   return _clients;
+}
+
+std::map<int, std::string> Channel::get_ops( void  ) const {
+  return _ops;
 }
 
 std::string Channel::get_setter_nick( void ) const {
@@ -113,14 +117,14 @@ bool Channel::set_limit( std::string limit ) {
     return 0;
 }
 
-void Channel::set_client( int cli_fd ) {
-  _clients.push_back(cli_fd);
+void Channel::set_client( int cli_fd, std::string name ) {
+  _clients[cli_fd] = name;
   _user_count++;
 }
 
 void Channel::drop_client( int cli_fd ) {
-  for ( std::vector<int>::iterator it = _clients.begin(); it != _clients.end(); it++ ) {
-    if (*it == cli_fd) {
+  for ( std::map<int, std::string>::iterator it = _clients.begin(); it != _clients.end(); it++ ) {
+    if (it->first == cli_fd) {
       _clients.erase(it);
       return ;
     }
@@ -136,8 +140,8 @@ void Channel::set_topic_set( bool value ) {
   _topic_set = value;
 }
 
-void Channel::set_op( int cli_fd ) {
-  _ops.push_back(cli_fd);
+void Channel::set_op( int cli_fd, std::string name) {
+  _ops[cli_fd] = name;
 }
 
 bool Channel::get_topic_set( void ) {
@@ -154,8 +158,8 @@ bool Channel::get_pass_set( void ) {
 
 int Channel::check_op( int cli_fd ) {
   // OR USE FIND WHATEVER.
-  for (std::vector<int>::iterator it = _ops.begin(); it != _ops.end(); it++) {
-    if (cli_fd == *it)
+  for (std::map<int, std::string>::iterator it = _ops.begin(); it != _ops.end(); it++) {
+    if (cli_fd == it->first)
       return 1;
   }
   return 0;
@@ -163,12 +167,10 @@ int Channel::check_op( int cli_fd ) {
 
 int Channel::check_client( int cli_fd ) {
   // OR USE FIND WHATEVER.
-  printf("PENIS1\n");
   if (_ops.empty())
     return 0;
-  printf("PENIS2\n");
-  for (std::vector<int>::iterator it = _ops.begin(); it != _ops.end(); it++) {
-    if (cli_fd == *it && printf("HURENSOHN\n"))
+  for (std::map<int, std::string>::iterator it = _ops.begin(); it != _ops.end(); it++) {
+    if (cli_fd == it->first)
       return 1;
   }
   return 0;

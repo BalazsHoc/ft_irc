@@ -19,6 +19,7 @@
 #include <string>
 #include "client.hpp"
 #include "channel.hpp"
+#include <algorithm>
 
 
 
@@ -60,6 +61,7 @@ char *str_join( char *str_1, char *str_2, int free_first ) {
 }
 
 void send_error( int cli_fd, std::string error, int flags) {
+  printf("\n\t\t\t\tSENDIN: %s$$$\n\n", error.c_str());
   send(cli_fd, (error + "\r\n").c_str(), error.size() + 2, flags); // MSG_DONTWAIT not needed here.
 }
 
@@ -69,6 +71,7 @@ void disconnect_client( int main_fd, std::map<int, Client *> &clients, int cli_f
   clients.erase(cli_fd);
   epoll_ctl(main_fd, EPOLL_CTL_DEL, cli_fd, NULL);
   close(cli_fd);
+  printf("PENIS0\n");
 }
 
 std::string space( void ) {
@@ -78,21 +81,15 @@ std::string space( void ) {
 std::vector<std::string> buf_in( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
   std::vector<std::string> ret;
 
-  char *msg = clients[cli_fd]->get_buf();
-  char *another_buf;
+  std::string msg = clients[cli_fd]->get_buf();
+  std::string another_buf;
 
-  int i;
-  i = 0;
 
-  if (!msg)
+  if (msg.empty())
     return ret;
 
-  printf("MSG: %s\n", msg);
-
-  while (msg && msg[i] && msg[i] != '\r' && msg[i + 1] && msg[i + 1] != '\n')
-    i++;
-
-  if (!msg[i]) // not a valid line we 'wait' till next packet arrives
+  int i = msg.find("\r\n");
+  if (i == std::string::npos) // not a valid line we 'wait' till next packet arrives
     return ret;
 
   if (i >= 511) { // a valid cmnd can't be longer then a message length without '\r\n'
@@ -100,7 +97,7 @@ std::vector<std::string> buf_in( int main_fd, std::map<int, Client *> &clients, 
     return ret ;
   }
 
-  std::string line(msg, i);
+  std::string line(msg, 0, i);
   std::stringstream ss(line);
   std::string buf;
 
@@ -143,14 +140,9 @@ std::vector<std::string> buf_in( int main_fd, std::map<int, Client *> &clients, 
 
   // rest of msg in buf;
   i += 2;
-  if (i < strlen(msg)) {
-    another_buf = (char *)calloc(sizeof(char), strlen(msg) - i);
-    if (!another_buf) //TODO: do exit with error code -> implement own func
-      return ret;
-    printf("MSG + I: %s | %ld\n", msg + i, strlen(msg) - i);
-    strncpy(another_buf, msg + i, strlen(msg) - i);
+  if (i < msg.size()) {
+    std::string another_buf = msg.substr(i, msg.size() - i);
     clients[cli_fd]->set_buf(another_buf);
-    free(another_buf);
   } else
     clients[cli_fd]->clear_buf();
   return ret;
@@ -168,7 +160,9 @@ int nick_available(std::map<int, Client *> &clients, std::string nick) {
 int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::vector<std::string> cmnd) {
   // REGISTRATION
   // TODO: what about TIMEOUT for pending registration ??
-  if (cmnd.at(0) == "PASS") {
+  if (cmnd.at(0) == "CAP") // for modern clients
+    send_error(cli_fd, ":irc.ppeter.com CAP * LS", 0);
+  else if (cmnd.at(0) == "PASS") {
     if (clients[cli_fd]->get_pass_set())
       send_error(cli_fd, ":irc.ppeter.com 462 " + clients[cli_fd]->get_nick() + " :Already registered.", 0);
     else if (cmnd.size() > 1 && printf("PASS: %s\n", clients[main_fd]->get_user().c_str()) && cmnd.at(1) == clients[main_fd]->get_user() && printf("SET PASS\n"))
@@ -176,7 +170,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       clients[cli_fd]->set_pass_set(true);
     else if (printf("SHOULD DISCONNECT\n"))
       return disconnect_client(main_fd, clients, cli_fd, ":irc.ppeter.com 464 " + clients[cli_fd]->get_nick() + " :Password mismatch."), 0;
-    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set()) {
+    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
       send_error(cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.", 0);
     }
@@ -193,12 +187,12 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       printf("SET USER: %s\n", cmnd.at(1).c_str());
     } else
       send_error(cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + ":Not enough parameters.", 0);
-    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set()) {
+    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
       send_error(cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.", 0);
     }
   } else if (cmnd.at(0) == "NICK") {
-    if (cmnd.size() > 1) {
+    if (cmnd.size() > 1) { // TODO: CHECK IF CORRECT ORDER WHEN CHECKING CMND.SIZE()
       if (nick_available(clients, cmnd.at(1))) {
         // NICK COMPLETE
         clients[cli_fd]->set_nick(cmnd.at(1));
@@ -209,12 +203,12 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     }
     else
       send_error(cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + ":Not enough parameters.", 0);
-    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set()) {
+    if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
       send_error(cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.", 0);
     }
   } else if (!clients[cli_fd]->get_regi_set())
-    return send_error(cli_fd, ":irc.ppeter.com 451 " + clients[cli_fd]->get_nick() + " :You have not registered.", 0), 0;
+    return send_error(cli_fd, ":irc.ppeter.com 451 " + clients[cli_fd]->get_nick() + " :You have not registered.", 0), 1;
   else
     return -1;
   return 1;
@@ -234,17 +228,55 @@ int valid_chars( std::string str ) {
 
 void broadcast( std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   std::string channel = cmnd.at(1);
-  std::vector<int> channel_clients = channels[channel]->get_clients();
+  std::map<int, std::string> channel_clients = channels[channel]->get_clients();
   // TODO: check for all instances like all commands + flags if this broadcast is working with cmnd.size() stuff
-  for (std::vector<int>::iterator it = channel_clients.begin(); it != channel_clients.end(); it++) {
-    printf("BROADCASTING: %d\n", *it);
+  for (std::map<int, std::string>::iterator it = channel_clients.begin(); it != channel_clients.end(); it++) {
     if (cmnd.size() == 4)
-      send_error(*it, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + cmnd.at(2) + space() + cmnd.at(3), 0);
+      send_error(it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + cmnd.at(2) + space() + cmnd.at(3), 0);
     else if (cmnd.size() == 3)
-      send_error(*it, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + cmnd.at(2), 0);
+      send_error(it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + cmnd.at(2), 0);
     else
-      send_error(*it, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1), 0);
+      send_error(it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1), 0);
   }
+}
+
+std::vector<std::string> names_list( Channel *channel ) {
+  std::vector<std::string> list;
+  std::map<int, std::string> clients = channel->get_clients();
+  std::map<int, std::string> ops = channel->get_ops();
+
+  for ( std::map<int, std::string>::iterator it = clients.begin(); it != clients.end(); it++ ) {
+    std::map<int, std::string>::iterator sec = find(ops.begin(), ops.end(), *it);
+    if (sec != ops.end())
+      list.push_back("@" + it->second);
+  }
+  for ( std::map<int, std::string>::iterator it = clients.begin(); it != clients.end(); it++ ) {
+    std::map<int, std::string>::iterator sec = find(ops.begin(), ops.end(), *it);
+    if (sec == ops.end())
+      list.push_back(it->second);
+  }
+  return list;
+}
+
+void send_from_cmnd( int cli_fd, std::string msg_part_1, std::vector<std::string> middle_msgs, std::string msg_part_2, int flags ) {
+  std::vector<std::string>::iterator next_one;
+  for (std::vector<std::string>::iterator it = middle_msgs.begin(); it != middle_msgs.end(); it++ ) {
+    next_one = it + 1;
+    if (it != middle_msgs.begin() && next_one != middle_msgs.end())
+      msg_part_1.append(*it);
+  }
+  if (!msg_part_2.empty())
+    msg_part_1.append(msg_part_2);
+  send_error(cli_fd, msg_part_1, 0);
+}
+
+void send_annoying_error( int cli_fd, std::string msg_part_1, std::vector<std::string> middle_msgs, std::string msg_part_2, int flags ) {
+  for (std::vector<std::string>::iterator it = middle_msgs.begin(); it != middle_msgs.end(); it++ ) {
+    msg_part_1.append(*it);
+  }
+  if (!msg_part_2.empty())
+    msg_part_1.append(msg_part_2);
+  send_error(cli_fd, msg_part_1, 0);
 }
 
 
@@ -252,13 +284,12 @@ void exec_JOIN(std::map<int, Client *> &clients, int cli_fd, std::vector<std::st
   printf("EXECUTING JOIN CMND !!\n\n");
   if (clients[cli_fd]->get_channel_count() == 10)
     return send_error(cli_fd, ":irc.ppeter.com 405 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + ":You have joined too many channels.", 0);
-  if (cmnd.at(1).empty() || cmnd.at(1)[0] != '#' || !valid_chars(cmnd.at(1))) {
-    return send_error(cli_fd,":irc:ppeter.com 476 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad Channel Mask.", 0);
-  }
+  if (cmnd.at(1).empty() || cmnd.at(1)[0] != '#' || !valid_chars(cmnd.at(1)))
+    return send_error(cli_fd,":irc.ppeter 476 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad Channel Mask.", 0);
   try {
     if (channels.at(cmnd.at(1))->get_pass_set()) { // NOTE: this throws if channel does not exist yet. we leave it and do not use check_channel as JOIN is ONLY cmnd which allows creating one when channel does not exist yet.
       if (cmnd.size() < 2 || channels[cmnd.at(1)]->get_pass() != cmnd.at(2))
-        return send_error(cli_fd,":irc:ppeter.com 475 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad channel key.", 0);
+        return send_error(cli_fd,":irc.ppeter 475 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad channel key.", 0);
     }
     // NOTE: we might as well put this in set_client of channels class
     if (channels[cmnd.at(1)]->get_user_count() >= channels[cmnd.at(1)]->get_limit() - 1)
@@ -266,26 +297,25 @@ void exec_JOIN(std::map<int, Client *> &clients, int cli_fd, std::vector<std::st
     // JOINS THE CHANNEL
     // NOTE: WE REGISTER IN BOTH BUT IS THIS REALLY NECESSARY ??
     clients[cli_fd]->set_channel(cmnd.at(1));
-    channels[cmnd.at(1)]->set_client(cli_fd);
+    channels[cmnd.at(1)]->set_client(cli_fd, clients[cli_fd]->get_nick());
   } catch (const std::out_of_range &e) {
     // CREATES & JOINS THE CHANNEL AS OP
     Channel *new_one = new Channel();
     channels.emplace(cmnd.at(1), new_one);
-    channels.at(cmnd.at(1))->set_client(cli_fd);
+    new_one->set_client(cli_fd, clients[cli_fd]->get_nick());
     clients[cli_fd]->set_channel(cmnd.at(1));
     new_one->set_name(cmnd.at(1));
     printf("NEWLY ADDED CHANNEL: %s$\n", channels[cmnd.at(1)]->get_name().c_str());
-    new_one->set_op(cli_fd);
+    new_one->set_op(cli_fd, clients[cli_fd]->get_nick());
   }
-  broadcast(clients, cli_fd, channels, cmnd); // rather fucking del the "#" before
+  broadcast(clients, cli_fd, channels, cmnd);
   if (channels[cmnd.at(1)]->get_topic_set()) {
-    send_error(cli_fd,":irc:ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic(), 0), 0;
-    // send_error(cli_fd,":irc:ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_setter_nick() + space() + channels.at(cmnd.at(1))->get_topic_timestamp(), 0), 0;
+    send_error(cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic(), 0), 0;
+    // send_error(cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_setter_nick() + space() + channels.at(cmnd.at(1))->get_topic_timestamp(), 0), 0;
   } else
-    send_error(cli_fd,":irc:ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set", 0), 0;
-
-  send_error(cli_fd,":irc:ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :End of /NAMES list", 0), 0;
-
+    send_error(cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set", 0), 0;
+  send_annoying_error(cli_fd, ":irc.ppeter 353 " + clients[cli_fd]->get_nick() + space() + "=" + space() + cmnd.at(1) + space() + ":", names_list(channels[cmnd.at(1)]), "", 0);
+  send_error(cli_fd,":irc.ppeter 366 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :End of /NAMES list", 0);
 }
 
 int check_channel(std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
@@ -297,8 +327,7 @@ int check_channel(std::map<int, Client *> &clients, int cli_fd, std::map<std::st
       return 1;
     }
   } catch (const std::out_of_range &e) {
-    printf("HERE WE ARE\n");
-    return send_error(cli_fd,":irc:ppeter.com 403 " + clients[cli_fd]->get_nick() + space() + cmnd.at(2) + " :No such channel.", 0), 0;
+    return send_error(cli_fd,":irc.ppeter 403 " + clients[cli_fd]->get_nick() + space() + cmnd.at(2) + " :No such channel.", 0), 0;
   }
   return 0;
 }
@@ -307,17 +336,19 @@ int check_op(std::map<int, Client *> &clients, int cli_fd, std::map<std::string,
   if (!check_channel(clients, cli_fd, channels, cmnd))
       return 0;
   if (!channels.at(cmnd.at(1))->check_op(cli_fd))
-    return send_error(cli_fd,":irc:ppeter.com 482 " + clients[cli_fd]->get_nick() + space() + cmnd.at(2) + " :Channel operator privileges needed.", 0), 0;
+    return send_error(cli_fd,":irc.ppeter 482 " + clients[cli_fd]->get_nick() + space() + cmnd.at(2) + " :Channel operator privileges needed.", 0), 0;
   return 1;
 }
+
 
 void exec_TOPIC( std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   if (!check_channel(clients, cli_fd, channels, cmnd))
     return ;
   if (cmnd.size() == 2) { 
     // WE ONLY RETURN THE TOPIC
-    send(cli_fd, channels[cmnd[1]]->get_topic().c_str(), channels[cmnd[1]]->get_topic().size(), 0);
-    return ;
+    if (!channels[cmnd.at(1)]->get_topic_set())
+      return send_error(cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set", 0);
+    return send_error(cli_fd, ":irc::ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd[1] + channels[cmnd[1]]->get_topic(), 0);
   } else if (cmnd.size() >= 3) { // WE WANT TO SET THE TOPIC
     if (channels[cmnd[1]]->get_topic_set() && !check_op(clients, cli_fd, channels, cmnd))
       return ;
@@ -357,18 +388,6 @@ void exec_INVITE( std::map<int, Client *> &clients, int cli_fd, std::map<std::st
   send_error(cli_fd, (":irc.ppeter.com 341 " + clients[cli_fd]->get_nick() + cmnd.at(1) + cmnd.at(2).c_str()), 0);
 }
 
-void send_annoying_err( int cli_fd, std::string msg_part_1, std::vector<std::string> middle_msgs, std::string msg_part_2, int flags ) {
-
-  std::vector<std::string>::iterator next_one;
-  for (std::vector<std::string>::iterator it = middle_msgs.begin(); it != middle_msgs.end(); it++ ) {
-    next_one = it + 1;
-    if (it != middle_msgs.begin() && next_one != middle_msgs.end())
-      msg_part_1.append(*it);
-  }
-  msg_part_1.append(msg_part_2);
-  send_error(cli_fd, msg_part_1, flags);
-}
-
 
 void exec_MSG( std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   if (cmnd.size() == 2 && cmnd.at(1)[0] == ':')
@@ -376,7 +395,7 @@ void exec_MSG( std::map<int, Client *> &clients, int cli_fd, std::map<std::strin
   if (cmnd.size() == 2)
     return send_error(cli_fd, (":irc.ppeter.com 412 " + clients[cli_fd]->get_nick() + " :No text to send."), 0);
   if (cmnd.size() > 3)
-    return send_annoying_err(cli_fd, ":irc.ppeter.com 407 " + clients[cli_fd]->get_nick(), cmnd, " :Too many recipients.", 0);
+    return send_from_cmnd(cli_fd, ":irc.ppeter.com 407 " + clients[cli_fd]->get_nick(), cmnd, " :Too many recipients.", 0);
   if (cmnd.at(1)[0] == '#') {
     if (!check_channel(clients, cli_fd, channels, cmnd))
       return send_error(cli_fd, (":irc.ppeter.com 401 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No such nick."), 0);
@@ -384,7 +403,7 @@ void exec_MSG( std::map<int, Client *> &clients, int cli_fd, std::map<std::strin
     broadcast(clients, cli_fd, channels, cmnd);
   } else {
     if (!check_client(clients, cmnd.at(1)))
-      return send_error(cli_fd,":irc:ppeter.com 403 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No such channel.", 0);
+      return send_error(cli_fd,":irc.ppeter 403 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No such channel.", 0);
     // SENDING TO CLIENT..
     send_error(check_client(clients, cmnd.at(1)), ":" + clients[cli_fd]->get_nick() + "!" + clients[cli_fd]->get_user() + "@" + clients[cli_fd]->get_host() + space() + cmnd.at(0) + space() + cmnd.at(2), 0);
   }
@@ -402,17 +421,43 @@ void exec_KICK( std::map<int, Client *> &clients, int cli_fd, std::map<std::stri
   broadcast(clients, cli_fd, channels, cmnd);
 }
 
+std::string current_modes(Channel *channel)
+{
+  if (!channel)
+    return "+";
+
+  std::string modes = "+";
+  std::ostringstream params;
+
+  if (channel->get_invite_set())
+    modes += 'i';
+  if (channel->get_topic_set())
+    modes += 't';
+  if (channel->get_pass_set()) {
+    modes += 'k';
+    params << " " << channel->get_pass();
+  }
+  if (channel->get_limit() != 200) {
+    modes += 'l';
+    params << " " << channel->get_limit();
+  }
+  if (modes == "+")
+    return "+";
+  return modes + params.str();
+}
+
+
 void exec_MODE( std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   if (!check_channel(clients, cli_fd, channels, cmnd))
     return ;
   if (!check_op(clients, cli_fd, channels, cmnd))
     return ;
   // TODO: CHECK ORDER WITH EACH INDIVIDUAL 'Not enought parameters.'
-  if (cmnd.size() < 3)
-    return send_error(cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str(), 0);
-  if (cmnd.at(2) == "+i" || cmnd.at(2) == "-i") {
+  if (cmnd.size() == 2) {
+      return send_error(cli_fd, ":irc.ppeter.com 324 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + current_modes(channels.at(cmnd.at(1))), 0);
+  } else if (cmnd.at(2) == "+i" || cmnd.at(2) == "-i") {
     if (cmnd.size() != 3)
-      return send_error(cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str(), 0);
+      return send_error(cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters."), 0);
     if (cmnd.at(2) == "+i")
       channels[cmnd.at(1)]->set_invite_set(true);
     else
@@ -441,7 +486,7 @@ void exec_MODE( std::map<int, Client *> &clients, int cli_fd, std::map<std::stri
     if (!channels[cmnd.at(1)]->check_client(check_client(clients, cmnd.at(3))))
       return ;
     // SET OP
-    channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)));
+    channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3));
   } else if ( cmnd.at(2) == "+l" || cmnd.at(2) == "-l") {
     if (cmnd.at(2) == "+l" && cmnd.size() != 4)
       return send_error(cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str(), 0);
@@ -496,7 +541,7 @@ void exec_cmnd(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::m
 int main( int argc, char **argv ) {
 
   if (argc != 3) {
-    std::cout << "usage " << argv[0] << "<port> <password>" << std::endl;
+    std::cout << "usage " << argv[0] << " <port> <password>" << std::endl;
     return 0;
   }
 
@@ -601,7 +646,6 @@ int main( int argc, char **argv ) {
         }
       } else {
         int cli_fd = events[i].data.fd;
-        char *msg = NULL;
 
         printf("CLIENT fd=%d ev=%x\n", cli_fd, events[i].events);
 
@@ -624,10 +668,12 @@ int main( int argc, char **argv ) {
         }
 
 
+        std::string msg;
+        int n = 0;
         while (true) {
           // NOTE: DONT USE READ HERE
           //        --> recv() allows socket specific control via flags --> NON_BLOCKING: MSG_DONTWAIT BUT FD IS ALREADY SET TO O_NON_BLOCKING
-          int n = recv(cli_fd, buf, sizeof(buf) - 1, 0);
+          n = recv(cli_fd, buf, sizeof(buf) - 1, 0);
           if (n == -1 && errno == EAGAIN && printf("EAGAIN\n"))
             break ;
           if (n <= 0) {
@@ -637,14 +683,18 @@ int main( int argc, char **argv ) {
           } else if (n <= 0 && printf("WE BREAK: NOTHING TO READ ANYMORE\n"))
             break ;
           buf[n] = 0;
-          msg = str_join(msg, buf, 1);
+          msg.append(buf);
+          printf("MSG: %s\n", msg.c_str());
         }
-        if (!msg)
-          continue ;
-        printf("SEND MSG: %s\n", msg);
-        msg = str_join(clients[cli_fd]->get_buf(), msg, 0);
-        printf("MAIN MSG: %s\n", msg);
+        printf("MSG: %s || %d \n", msg.c_str(), n);
+        if (n == 0) {
+          delete (clients[cli_fd]);
+          delete (clients[main_fd]);
+          return 0 ;
+        }
+        printf("PENIS1\n");
         clients[cli_fd]->set_buf(msg);
+        printf("exec_cmnd: %s\n", clients[cli_fd]->get_buf().c_str());
         exec_cmnd(main_fd, clients, cli_fd, channels);
       }
     }

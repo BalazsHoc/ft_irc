@@ -12,7 +12,7 @@ class Client {
     // Client & operator = ( Client & orig );
     ~Client ( ) ;
 
-    void set_buf( char *buf );
+    void set_buf( std::string buf );
     void set_user( std::string name );
 
     void set_nick( std::string nick );
@@ -37,7 +37,7 @@ class Client {
     void clear_buf( void ) ;
 
 
-    char *get_buf( void );
+    std::string get_buf( void );
     std::string get_user( void );
     std::string get_nick( void );
     std::string get_host( void );
@@ -64,6 +64,6 @@ class Client {
 
     std::string    _channel[20];
 
-    char *_buf;
+    std::string _buf;
 
 };
