@@ -74,6 +74,26 @@ void Client::set_channel( std::string channel ) {
 }
 
 
+void Client::unset_invite( std::string channel ) {
+  std::vector<std::string>::iterator it = std::find(_invited.begin(), _invited.end(), channel);
+  if (it != _invited.end())
+    _invited.erase(it);
+}
+
+bool Client::check_invited( std::string channel ) {
+  try {
+    for (std::vector<std::string>::iterator it = _invited.begin(); it != _invited.end(); it++) {
+      if ((*it) == channel)
+        return 1;
+    }
+  }
+  catch (const std::exception &e) {
+    printf("\n\n\n\n\t\t\t\tWIR HABEN IHN2\n");
+  }
+  return 0;
+}
+
+
 std::string Client::get_buf( void ) {
   return _buf;
 }
@@ -124,3 +144,7 @@ int Client::get_fd( void ) const {
   return _cli_fd;
 }
 
+void Client::set_invite( std::string channel ) {
+  printf("SET INVITE FOR %s channel: %s\n", get_nick().c_str(), channel.c_str());
+  _invited.push_back(channel);
+}

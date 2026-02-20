@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <algorithm>
 #include "channel.hpp"
 
 class Client {
@@ -25,6 +27,10 @@ class Client {
     void set_user_set( bool value ) ;
     void set_nick_set( bool value );
     void set_regi_set( bool value );
+
+    void set_invite( std::string channel );
+    void unset_invite( std::string channel );
+    bool check_invited( std::string channel );
 
     bool get_regi_set( void ) const;
     bool get_pass_set( void ) const;
@@ -62,7 +68,8 @@ class Client {
     std::string _host;
     std::string _realname;
 
-    std::string    _channel[20];
+    std::string                 _channel[20];
+    std::vector<std::string>    _invited;
 
     std::string _buf;
 
