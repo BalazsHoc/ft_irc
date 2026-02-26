@@ -23,7 +23,7 @@
 #include <cerrno>
 
 #include <unistd.h>
-#include <signal.h>
+#include <csignal>
 
 
 // TODO:                            <!-->
@@ -49,6 +49,17 @@
 #ifndef MAX_EPOLL_EVENTS
 # define MAX_EPOLL_EVENTS 1024
 #endif
+
+volatile sig_atomic_t	g_signal = 0;
+
+void	signalHandler(int signum)
+{
+	if (signum == SIGINT)
+	{
+		g_signal = 1;
+		std::cout << "\nCaught Ctrl+C (SIGINT). Shutting down...\n";
+	}
+}
 
 
 void disconnect_client( int main_fd, std::map<int, Client *> &clients, int cli_fd) {
@@ -590,6 +601,8 @@ int main( int argc, char **argv ) {
     return 0;
   }
 
+	std::signal(SIGINT, signalHandler);
+
   struct sigaction sa;
   sa.sa_handler = SIG_IGN;
   sigemptyset(&sa.sa_mask);
@@ -612,7 +625,6 @@ int main( int argc, char **argv ) {
 
   // fuck we also need all the channels available for everyone;
   std::map<std::string, Channel *>channels;
-
 
   main_fd = epoll_create1(0);
   if (main_fd == -1)
@@ -664,9 +676,9 @@ int main( int argc, char **argv ) {
 
   char buf[513];
 
-  while(true) {
+  while(!g_signal) {
     int n_ev = epoll_wait(main_fd, events, MAX_EPOLL_EVENTS, -1);
-    if (n_ev == -1) {
+    if (n_ev == -1 && !g_signal) {
       p_error("epoll_wait() failed. ");
       return 1 ;
     }
@@ -675,7 +687,7 @@ int main( int argc, char **argv ) {
         int cli_sock = -1;
         if (events[i].events & EPOLLIN) {
           cli_sock = accept(sockfd, (struct sockaddr *) &client_addr, &cli_len);
-          if (cli_sock == -1) {
+          if (cli_sock == -1 && !g_signal) {
             p_error("accept() failed. ");
             break ;
           }
@@ -684,7 +696,7 @@ int main( int argc, char **argv ) {
           event.events = EPOLLIN | EPOLLRDHUP;
           event.data.fd = cli_sock;
           printf("NEW CLIENT \n");
-          if (epoll_ctl(main_fd, EPOLL_CTL_ADD, cli_sock, &event) == -1) {
+          if (epoll_ctl(main_fd, EPOLL_CTL_ADD, cli_sock, &event) == -1 && !g_signal) {
             p_error("epoll_ctl() failed. ");
             return 1 ;
           }
@@ -717,6 +729,10 @@ int main( int argc, char **argv ) {
 
 
         int n = -1;
+		if (g_signal) {
+			disconnect_main(main_fd, clients, sockfd);
+			return 1;
+		}
         if (events[i].events & EPOLLIN) {
           // NOTE: DONT USE READ HERE
           //        --> recv() allows socket specific control via flags --> NON_BLOCKING: MSG_DONTWAIT BUT FD IS ALREADY SET TO O_NON_BLOCKING
@@ -739,6 +755,10 @@ int main( int argc, char **argv ) {
     }
   }
 
+  if (g_signal) {
+	disconnect_main(main_fd, clients, sockfd);
+	return 1;
+  }
 
   return 0;
 }
