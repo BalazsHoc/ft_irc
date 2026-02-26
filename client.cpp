@@ -2,13 +2,13 @@
 #include <string.h>
 
 
-Client::Client ( void ) {
+Client::Client ( int cli_fd ) : _cli_fd(cli_fd) {
   _nick = "*";
   _channel_count = 0;
 }
 
 
-// Client::Client ( Client & orig ) : _user(orig._user), _channel(orig._channel), _buf(orig._buf) {}
+// Client::Client ( Client & orig ) : _user(orig._user), _channel(orig._channel), _in_buf(orig._in_buf) {}
 
 // Client::Client & operator = ( Client & orig );
 
@@ -49,12 +49,32 @@ void Client::set_host( unsigned long ip_addr ) { // network-bite order
   _host = std::string(buf);
 }
 
-void Client::set_buf( std::string buf ) {
-  _buf = buf;
+void Client::set_out_buf( std::string out ) {
+  _out_buf += out + "\r\n";
 }
 
-void Client::clear_buf( void ) {
-  _buf = "";
+std::string Client::get_out_buf( void ) {
+  return _out_buf;
+}
+
+void Client::send_out ( void ) {
+  printf("\n\t\t\t\tSENDIN TO %d: %s$$$\n\n", _cli_fd, _out_buf.c_str());
+  int n = send(_cli_fd, _out_buf.c_str(), _out_buf.size(), MSG_NOSIGNAL);
+  if (n > 0)
+    _out_buf.erase(0, n);
+}
+
+void Client::set_in_buf( std::string buf ) {
+  _in_buf.clear();
+  _in_buf = buf;
+}
+
+void Client::append_to_buf( std::string buf ) {
+  _in_buf += buf;
+}
+
+void Client::clear_in_buf( void ) {
+  _in_buf.clear();
 }
 
 // void Client::set_channel( Channel *channel ) {
@@ -94,8 +114,8 @@ bool Client::check_invited( std::string channel ) {
 }
 
 
-std::string Client::get_buf( void ) {
-  return _buf;
+std::string Client::get_in_buf( void ) {
+  return _in_buf;
 }
 
 std::string Client::get_user( void ) {

@@ -9,12 +9,15 @@ class Client {
 
   public:
 
-    Client ( void );
+    Client ( int cli_fd );
     // Client ( Client & orig );
     // Client & operator = ( Client & orig );
     ~Client ( ) ;
 
-    void set_buf( std::string buf );
+
+    void set_fd( int cli_fd );
+    void set_in_buf( std::string buf );
+    void append_to_buf( std::string buf );
     void set_user( std::string name );
 
     void set_nick( std::string nick );
@@ -28,6 +31,9 @@ class Client {
     void set_nick_set( bool value );
     void set_regi_set( bool value );
 
+    void set_out_buf( std::string out );
+    void send_out( void );
+
     void set_invite( std::string channel );
     void unset_invite( std::string channel );
     bool check_invited( std::string channel );
@@ -40,10 +46,11 @@ class Client {
     int get_channel_count( void ) const;
     int get_fd( void ) const;
 
-    void clear_buf( void ) ;
+    void clear_in_buf( void ) ;
 
 
-    std::string get_buf( void );
+    std::string get_in_buf( void );
+    std::string get_out_buf( void );
     std::string get_user( void );
     std::string get_nick( void );
     std::string get_host( void );
@@ -71,6 +78,7 @@ class Client {
     std::string                 _channel[20];
     std::vector<std::string>    _invited;
 
-    std::string _buf;
+    std::string _in_buf;
+    std::string _out_buf;
 
 };
