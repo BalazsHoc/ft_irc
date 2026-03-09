@@ -52,19 +52,23 @@
 
 volatile sig_atomic_t	g_signal = 0;
 
-void	signalHandler(int signum)
-{
-	if (signum == SIGINT)
-	{
-		g_signal = 1;
-		std::cout << "\nCaught Ctrl+C (SIGINT). Shutting down...\n";
-	}
+void  signalHandler(int signum) {
+  if (signum == SIGINT) {
+    g_signal = 1;
+    std::cout << "\nCaught Ctrl+C (SIGINT). Shutting down...\n";
+  }
 }
 
+void p_error( std::string err ) {
+  // TODO: strerror() can be used ???
+  std::cerr << "Error: " << err << " " << strerror(errno) << std::endl;
+}
 
 void disconnect_client( int main_fd, std::map<int, Client *> &clients, int cli_fd) {
   printf("\n\n DISCONNECTING.. \n\n");
-  epoll_ctl(main_fd, EPOLL_CTL_DEL, cli_fd, NULL);
+  if (epoll_ctl(main_fd, EPOLL_CTL_DEL, cli_fd, NULL) == -1) {
+    p_error("epoll_ctl() failed ");
+  }
   close(cli_fd);
   std::map<int, Client *>::iterator it = clients.find(cli_fd);
   if (it != clients.end()) {
@@ -84,21 +88,25 @@ void disconnect_main( int main_fd, std::map<int, Client *> &clients, int sock_fd
   close(main_fd);
   delete(clients[main_fd]);
   clients.erase(main_fd);
-  close(sock_fd);
+  if (main_fd != sock_fd)
+    close(sock_fd);
 }
 
 void set_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
   struct epoll_event ev;
   ev.data.fd = cli_fd;
   ev.events = EPOLLIN | EPOLLRDHUP | EPOLLOUT;
-  epoll_ctl(main_fd, EPOLL_CTL_MOD, cli_fd, &ev);
+  if (epoll_ctl(main_fd, EPOLL_CTL_MOD, cli_fd, &ev) == -1)
+    p_error("epoll_ctl() failed ");
 }
 
-void unset_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
+int unset_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
   struct epoll_event ev;
   ev.data.fd = cli_fd;
   ev.events = EPOLLIN | EPOLLRDHUP;
-  epoll_ctl(main_fd, EPOLL_CTL_MOD, cli_fd, &ev);
+  if (epoll_ctl(main_fd, EPOLL_CTL_MOD, cli_fd, &ev) == -1)
+    return p_error("epoll_ctl() failed "), 0;
+  return 1;
 }
 
 void send_error( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::string error) {
@@ -589,10 +597,6 @@ void exec_cmnd(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::m
   exec_cmnd(main_fd, clients, cli_fd, channels);
 }
 
-void p_error( std::string err ) {
-  std::cerr << "Error: " << err << strerror(errno) << std::endl;
-}
-
 
 int main( int argc, char **argv ) {
 
@@ -618,7 +622,10 @@ int main( int argc, char **argv ) {
   cli_len = sizeof(client_addr);
 
   int port;
-  port = htons(atoi(argv[1]));
+  port = atoi(argv[1]);
+  if (port < 1024 || port > 65535)
+    return p_error("Invalid port number."), 0;
+  port = htons(port);
 
   int main_fd, sockfd;
   std::string pass = argv[2];
@@ -627,8 +634,10 @@ int main( int argc, char **argv ) {
   std::map<std::string, Channel *>channels;
 
   main_fd = epoll_create1(0);
-  if (main_fd == -1)
+  if (main_fd == -1) {
     p_error("epoll_create1() failed ");
+    return 1;
+  }
   Client *non_client = new Client(main_fd);
   clients.emplace(main_fd, non_client);
   clients[main_fd]->set_user(pass);
@@ -646,7 +655,7 @@ int main( int argc, char **argv ) {
   //    - all you must do yourself
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1)
-    p_error("socket() failed ");
+    return p_error("socket() failed "), disconnect_main(main_fd, clients, main_fd), 1;
 
   // operates on the file descriptor
   // affects I/O semantics
@@ -661,9 +670,10 @@ int main( int argc, char **argv ) {
   serv_addr.sin_addr.s_addr = INADDR_ANY; // ACCEPT ALL CONNECTION ORIGINS
 
   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-    p_error("bind() failed ");
+    return p_error("bind() failed "), disconnect_main(main_fd, clients, main_fd), 1;
 
-  listen(sockfd, SOMAXCONN);
+  if (listen(sockfd, SOMAXCONN) == -1)
+    return p_error("listen() failed "), disconnect_main(main_fd, clients, main_fd), 1;
 
   struct epoll_event event;
   struct epoll_event events[MAX_EPOLL_EVENTS];
@@ -671,8 +681,10 @@ int main( int argc, char **argv ) {
   event.events = EPOLLIN;
   event.data.fd = sockfd;
 
-  if (epoll_ctl(main_fd, EPOLL_CTL_ADD, sockfd, &event) == -1)
+  if (epoll_ctl(main_fd, EPOLL_CTL_ADD, sockfd, &event) == -1) {
     p_error("epoll_ctl() failed ");
+    return 1;
+  }
 
   char buf[513];
 
@@ -680,6 +692,7 @@ int main( int argc, char **argv ) {
     int n_ev = epoll_wait(main_fd, events, MAX_EPOLL_EVENTS, -1);
     if (n_ev == -1 && !g_signal) {
       p_error("epoll_wait() failed. ");
+      disconnect_client(main_fd, clients, main_fd);
       return 1 ;
     }
     for (int i = 0; i < n_ev; i++) {
@@ -691,13 +704,13 @@ int main( int argc, char **argv ) {
             p_error("accept() failed. ");
             break ;
           }
-          int flags = fcntl(cli_sock, F_GETFL, O_NONBLOCK);
-          fcntl(cli_sock, F_SETFL, flags | O_NONBLOCK);
+          fcntl(cli_sock, F_SETFL, O_NONBLOCK);
           event.events = EPOLLIN | EPOLLRDHUP;
           event.data.fd = cli_sock;
           printf("NEW CLIENT \n");
           if (epoll_ctl(main_fd, EPOLL_CTL_ADD, cli_sock, &event) == -1 && !g_signal) {
             p_error("epoll_ctl() failed. ");
+            disconnect_main(main_fd, clients, cli_sock);
             return 1 ;
           }
           Client *new_one = new Client(cli_sock);
@@ -722,22 +735,25 @@ int main( int argc, char **argv ) {
         // - half closed
         // Note: still can be unread data, and still one way direction is open
         if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
-          // disconnect_client(main_fd, clients, cli_fd);
-          disconnect_main(main_fd, clients, sockfd);
-          return 0;
+          printf("HUP\n");
+          disconnect_client(main_fd, clients, cli_fd);
+          break ;
+          // disconnect_main(main_fd, clients, sockfd);
         }
 
 
         int n = -1;
-		if (g_signal) {
-			disconnect_main(main_fd, clients, sockfd);
-			return 1;
-		}
+        if (g_signal) {
+          printf("g_signal \n");
+          disconnect_main(main_fd, clients, sockfd);
+          return 1;
+        }
         if (events[i].events & EPOLLIN) {
           // NOTE: DONT USE READ HERE
           //        --> recv() allows socket specific control via flags --> NON_BLOCKING: MSG_DONTWAIT BUT FD IS ALREADY SET TO O_NON_BLOCKING
           n = recv(cli_fd, buf, sizeof(buf) - 1, 0);
           if (n <= 0) {
+            printf("HURENSOHN\n");
             disconnect_client(main_fd, clients, cli_fd);
             continue ;
           } else {
@@ -748,8 +764,8 @@ int main( int argc, char **argv ) {
           }
         } else if (events[i].events & EPOLLOUT) {
           clients[cli_fd]->send_out();
-          if (clients[cli_fd]->get_out_buf().empty())
-            unset_out(main_fd, clients, cli_fd);
+          if (clients[cli_fd]->get_out_buf().empty() && !unset_out(main_fd, clients, cli_fd))
+            disconnect_client(main_fd, clients, cli_fd);
         }
       }
     }
