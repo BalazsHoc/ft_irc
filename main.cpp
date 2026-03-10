@@ -77,13 +77,18 @@ void disconnect_client( int main_fd, std::map<int, Client *> &clients, int cli_f
   }
 }
 
-void disconnect_main( int main_fd, std::map<int, Client *> &clients, int sock_fd ) {
+void disconnect_main( int main_fd, std::map<int, Client *> &clients, std::map<std::string, Channel *> &channels, int sock_fd ) {
   printf("\n\n DISCONNECTING MAIN.. \n\n");
   // FIRST DISONNECT ALL CLIENTS
   for ( std::map<int, Client*>::iterator it = clients.begin(); it != clients.end(); ) {
     std::map<int, Client *>::iterator prev = it++;
     if (prev->first != main_fd)
       disconnect_client(main_fd, clients, prev->first);
+  }
+  for ( std::map<std::string, Channel *>::iterator it = channels.begin(); it != channels.end(); ) {
+    std::map<std::string, Channel *>::iterator prev = it++;
+    delete prev->second;
+    channels.erase(prev->first);
   }
   close(main_fd);
   delete(clients[main_fd]);
@@ -282,7 +287,7 @@ void broadcast( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
   for (std::map<int, std::string>::iterator it = channel_clients.begin(); it != channel_clients.end(); it++) {
     if (cmnd.size() == 4)
       send_error(main_fd, clients, it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + space() + cmnd.at(2) + space() + cmnd.at(3));
-    else if (cmnd.size() == 3) //                                                                         we need this space in case of mode +i
+    else if (cmnd.size() == 3) //                                                                         we need this space in case of mode +i // but we also need the colon in case of TOPIC
       send_error(main_fd, clients, it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + space() + cmnd.at(2));
     else
       send_error(main_fd, clients, it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1));
@@ -297,12 +302,12 @@ std::vector<std::string> names_list( Channel *channel ) {
   for ( std::map<int, std::string>::iterator it = clients.begin(); it != clients.end(); it++ ) {
     std::map<int, std::string>::iterator sec = find(ops.begin(), ops.end(), *it);
     if (sec != ops.end())
-      list.push_back("@" + it->second);
+      list.push_back("@" + it->second + space());
   }
   for ( std::map<int, std::string>::iterator it = clients.begin(); it != clients.end(); it++ ) {
     std::map<int, std::string>::iterator sec = find(ops.begin(), ops.end(), *it);
     if (sec == ops.end())
-      list.push_back(it->second);
+      list.push_back(it->second + space());
   }
   return list;
 }
@@ -414,12 +419,13 @@ void exec_TOPIC( int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     // WE ONLY RETURN THE TOPIC
     if (!channels[cmnd.at(1)]->get_topic_set())
       return send_error(main_fd, clients, cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set");
-    return send_error(main_fd, clients, cli_fd, ":irc::ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd[1] + channels[cmnd[1]]->get_topic());
+    return send_error(main_fd, clients, cli_fd, ":irc::ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd[1] + space() + channels[cmnd[1]]->get_topic());
   } else if (cmnd.size() >= 3) { // WE WANT TO SET THE TOPIC
     if (channels[cmnd[1]]->get_topic_set() && !check_op(main_fd, clients, cli_fd, channels, cmnd.at(1)))
       return ;
-    if (cmnd.at(2)[0] == ':')
-      cmnd.at(2).erase(0, 1);
+    // TODO: don't erase the ':'
+    // if (cmnd.at(2)[0] == ':')
+    //   cmnd.at(2).erase(0, 1);
     // WE SET THE TOPIC
     channels[cmnd.at(1)]->set_topic(cmnd.at(2), clients[cli_fd]->get_nick());
     broadcast(main_fd, clients, cli_fd, channels, cmnd);
@@ -655,7 +661,7 @@ int main( int argc, char **argv ) {
   //    - all you must do yourself
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd == -1)
-    return p_error("socket() failed "), disconnect_main(main_fd, clients, main_fd), 1;
+    return p_error("socket() failed "), disconnect_main(main_fd, clients, channels, main_fd), 1;
 
   // operates on the file descriptor
   // affects I/O semantics
@@ -670,10 +676,10 @@ int main( int argc, char **argv ) {
   serv_addr.sin_addr.s_addr = INADDR_ANY; // ACCEPT ALL CONNECTION ORIGINS
 
   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-    return p_error("bind() failed "), disconnect_main(main_fd, clients, main_fd), 1;
+    return p_error("bind() failed "), disconnect_main(main_fd, clients, channels, main_fd), 1;
 
   if (listen(sockfd, SOMAXCONN) == -1)
-    return p_error("listen() failed "), disconnect_main(main_fd, clients, main_fd), 1;
+    return p_error("listen() failed "), disconnect_main(main_fd, clients, channels, main_fd), 1;
 
   struct epoll_event event;
   struct epoll_event events[MAX_EPOLL_EVENTS];
@@ -692,6 +698,7 @@ int main( int argc, char **argv ) {
     int n_ev = epoll_wait(main_fd, events, MAX_EPOLL_EVENTS, -1);
     if (n_ev == -1 && !g_signal) {
       p_error("epoll_wait() failed. ");
+      // TODO: check main free channels
       disconnect_client(main_fd, clients, main_fd);
       return 1 ;
     }
@@ -710,7 +717,7 @@ int main( int argc, char **argv ) {
           printf("NEW CLIENT \n");
           if (epoll_ctl(main_fd, EPOLL_CTL_ADD, cli_sock, &event) == -1 && !g_signal) {
             p_error("epoll_ctl() failed. ");
-            disconnect_main(main_fd, clients, cli_sock);
+            disconnect_main(main_fd, clients, channels, cli_sock);
             return 1 ;
           }
           Client *new_one = new Client(cli_sock);
@@ -738,14 +745,14 @@ int main( int argc, char **argv ) {
           printf("HUP\n");
           disconnect_client(main_fd, clients, cli_fd);
           break ;
-          // disconnect_main(main_fd, clients, sockfd);
+          // disconnect_main(main_fd, clients, channels, sockfd);
         }
 
 
         int n = -1;
         if (g_signal) {
           printf("g_signal \n");
-          disconnect_main(main_fd, clients, sockfd);
+          disconnect_main(main_fd, clients, channels, sockfd);
           return 1;
         }
         if (events[i].events & EPOLLIN) {
@@ -772,8 +779,8 @@ int main( int argc, char **argv ) {
   }
 
   if (g_signal) {
-	disconnect_main(main_fd, clients, sockfd);
-	return 1;
+    disconnect_main(main_fd, clients, channels, sockfd);
+    return 1;
   }
 
   return 0;
