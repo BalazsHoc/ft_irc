@@ -208,6 +208,47 @@ int nick_available(std::map<int, Client *> &clients, std::string nick) {
   return 1;
 }
 
+int is_alpha( char c ) {
+  if (c >= 97 && c <= 122)
+    return 1;
+  if (c >= 65 && c <= 90)
+    return 1;
+  return 0;
+}
+
+int is_num( char c ) {
+  if ( c >= 48 && c <= 57 )
+    return 1;
+  return 0;
+}
+
+int is_special ( char c ) {
+  if (c == 45 || (c >= 91 && c <= 96)) {
+    if (c == 95 && printf("\n\nSHOULD BE FUCKING TRUE\n\n"))
+      return 0;
+    return 1;
+  }
+  return 0;
+}
+
+int is_valid_nick( std::string nick ) {
+  if (!is_alpha(nick.at(0)))
+    return 0;
+  for (int i = 1; i < nick.size(); i++) {
+    if (!is_alpha(nick.at(i)) && !is_special(nick.at(i)) && !is_num(nick.at(i)))
+      return 0;
+  }
+  return 1;
+}
+
+int is_valid_char( std::string user ) {
+  for (int i = 1; i < user.size(); i++) {
+    if (user.at(i) == '\r' || user.at(i) == '\n' || user.at(i) == '\0')
+      return 0;
+  }
+  return 1;
+}
+
 
 int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::vector<std::string> cmnd) {
   // REGISTRATION
@@ -217,6 +258,8 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
   else if (cmnd.at(0) == "PASS") {
     if (clients[cli_fd]->get_pass_set())
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 462 " + clients[cli_fd]->get_nick() + " :Already registered.");
+    else if (!is_valid_char(cmnd.at(1)))
+      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.");
     else if (cmnd.size() > 1 && cmnd.at(1) == clients[main_fd]->get_user())
       // PASS COMPLETE
       clients[cli_fd]->set_pass_set(true);
@@ -232,7 +275,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     // USER <username> <hostname> <servername> :<realname>
     if (clients[cli_fd]->get_user_set())
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 462 " + clients[cli_fd]->get_nick() + " :Already registered.");
-    else if (cmnd.size() == 5 && printf("USER AT 4: %s\n", cmnd.at(4).c_str()) && cmnd.at(4)[0] == ':') {
+    else if (cmnd.size() == 5 && cmnd.at(4)[0] == ':' && is_valid_char(cmnd.at(1))) {
       // USER COMPLETE
       clients[cli_fd]->set_user_set(true);
       clients[cli_fd]->set_user(cmnd.at(1));
@@ -247,7 +290,9 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     }
   } else if (cmnd.at(0) == "NICK") {
     if (cmnd.size() > 1) { // TODO: CHECK IF CORRECT ORDER WHEN CHECKING CMND.SIZE()
-      if (nick_available(clients, cmnd.at(1))) {
+      if (!is_valid_nick(cmnd.at(1)))
+        send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 432 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Erroneous nickname.");
+      else if (nick_available(clients, cmnd.at(1))) {
         // NICK COMPLETE
         clients[cli_fd]->set_nick(cmnd.at(1));
         clients[cli_fd]->set_nick_set(true);
@@ -376,10 +421,10 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
     new_one->set_client(cli_fd, clients[cli_fd]->get_nick());
     clients[cli_fd]->set_channel(cmnd.at(1));
     new_one->set_name(cmnd.at(1));
-    new_one->set_op(cli_fd, clients[cli_fd]->get_nick());
+    new_one->set_op(cli_fd, clients[cli_fd]->get_nick(), 1);
   }
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
-  if (channels[cmnd.at(1)]->get_topic_set()) {
+  if (channels[cmnd.at(1)]->get_topic() != "") {
     send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic()), 0;
     // send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_setter_nick() + space() + channels.at(cmnd.at(1))->get_topic_timestamp(), 0), 0;
   } else
@@ -405,7 +450,6 @@ int check_op(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map
   // NOTE: not really needed as we check always before; still can keep just to be extra safe. alternative could be to put this in an extra try and catch block
   if (!check_channel(main_fd, clients, cli_fd, channels, channel))
       return 0;
-
   if (!channels.at(channel)->check_op(cli_fd))
     return send_error(main_fd, clients, cli_fd,":irc.ppeter 482 " + clients[cli_fd]->get_nick() + space() + channel + " :Channel operator privileges needed."), 0;
   return 1;
@@ -419,7 +463,7 @@ void exec_TOPIC( int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     // WE ONLY RETURN THE TOPIC
     if (!channels[cmnd.at(1)]->get_topic_set())
       return send_error(main_fd, clients, cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set");
-    return send_error(main_fd, clients, cli_fd, ":irc::ppeter.com 332 " + clients[cli_fd]->get_nick() + space() + cmnd[1] + space() + channels[cmnd[1]]->get_topic());
+    return send_error(main_fd, clients, cli_fd, ":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd[1] + space() + channels[cmnd[1]]->get_topic());
   } else if (cmnd.size() >= 3) { // WE WANT TO SET THE TOPIC
     if (channels[cmnd[1]]->get_topic_set() && !check_op(main_fd, clients, cli_fd, channels, cmnd.at(1)))
       return ;
@@ -531,18 +575,16 @@ void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
   } else if ( cmnd.at(2) == "+t" || cmnd.at(2) == "-t") {
     if (cmnd.size() != 3)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
-    if (cmnd.at(2) == "+i")
-      channels[cmnd.at(1)]->set_topic_set(true);
-    else
-      channels[cmnd.at(1)]->set_topic_set(false);
+    channels[cmnd.at(1)]->set_topic_set(cmnd.at(2) == "+t");
   } else if ( cmnd.at(2) == "+k" || cmnd.at(2) == "-k") {
     if (cmnd.at(2) == "+k" && cmnd.size() != 4)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
     else if (cmnd.at(2) == "-k" && cmnd.size() != 3)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
-    if (cmnd.at(2) == "+k")
+    if (cmnd.at(2) == "+k") {
       channels[cmnd.at(1)]->set_pass(cmnd.at(3));
-    else
+      cmnd.at(3) = "*";
+    } else
       channels[cmnd.at(1)]->unset_pass();
   } else if ( cmnd.at(2) == "+o" || cmnd.at(2) == "-o") {
     if (cmnd.size() != 4)
@@ -552,7 +594,10 @@ void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
     if (!channels[cmnd.at(1)]->check_client(check_client(clients, cmnd.at(3))))
       return ;
     // SET OP
-    channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3));
+    if (cmnd.at(2) == "+o") // TODO: do we need to check_client()???
+      channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3), 1);
+    else // UNSET OP
+      channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3), 0);
   } else if ( cmnd.at(2) == "+l" || cmnd.at(2) == "-l") {
     if (cmnd.at(2) == "+l" && cmnd.size() != 4)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());

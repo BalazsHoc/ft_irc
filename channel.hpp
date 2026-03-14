@@ -29,7 +29,7 @@ class Channel {
     void              set_pass        ( std::string pass )          ;
     void              set_topic       ( std::string topic, std::string nick )         ;
     void              set_client      ( int cli_fd, std::string name )                ;
-    void              set_op          ( int cli_fd, std::string name )                ;
+    void              set_op          ( int cli_fd, std::string name, int set)                ;
     bool              set_limit       ( std::string limit )         ;
     void              drop_client     ( int cli_fd )                ;
     void              set_name        (std::string name);
@@ -61,9 +61,9 @@ class Channel {
 
   private:
 
-    bool          _pass_set = 0;
-    bool          _invite_set = 0;
-    bool          _topic_set = 0;
+    bool          _pass_set = false;
+    bool          _invite_set = false;
+    bool          _topic_set = true;
     
 
     std::string   _topic;

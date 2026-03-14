@@ -62,7 +62,7 @@ void Channel::set_pass( std::string pass ) {
 }
 
 void Channel::unset_pass( void ) {
-  _pass = nullptr;
+  _pass = "";
   _pass_set = false;
 }
 
@@ -72,7 +72,6 @@ void Channel::unset_limit( void ) {
 
 void Channel::set_topic( std::string topic, std::string nick ) {
   _topic = topic;
-  _topic_set = true;
   _timestamp = std::time(NULL);
   _setter_nick = nick;
 }
@@ -138,14 +137,19 @@ void Channel::set_invite_set( bool value ) {
 
 
 void Channel::set_topic_set( bool value ) {
+  printf("PRINT OUT THE BOOL WE SET: %d\n", value);
   _topic_set = value;
 }
 
-void Channel::set_op( int cli_fd, std::string name) {
-  _ops[cli_fd] = name;
+void Channel::set_op( int cli_fd, std::string name, int set) {
+  if (set)
+    _ops[cli_fd] = name;
+  else
+    _ops.erase(cli_fd);
 }
 
 bool Channel::get_topic_set( void ) {
+  printf("PRINT OUT THE BOOL WE GET: %d\n", _topic_set);
   return _topic_set;
 }
 
