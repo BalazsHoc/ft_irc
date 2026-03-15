@@ -1,5 +1,5 @@
 #include "client.hpp"
-#include <string.h>
+
 
 
 Client::Client ( int cli_fd ) : _cli_fd(cli_fd) {
@@ -77,10 +77,14 @@ void Client::clear_in_buf( void ) {
   _in_buf.clear();
 }
 
-// void Client::set_channel( Channel *channel ) {
-//   _channel[_channel_count] = channel;
-//   _channel_count++;
-// }
+void Client::unset_channel( std::string channel ) {
+  for (int i = 0; i < _channel_count; i++) {
+    if (_channel[i] == channel) {
+      _channel[i] = "";
+      _channel_count--;
+    }
+  }
+}
 
 void Client::set_channel( std::string channel ) {
   if (_channel_count >= _channel_limit) // not really needed but extra safe
@@ -89,8 +93,12 @@ void Client::set_channel( std::string channel ) {
     if (_channel[i] == channel)
       return ;
   }
-  _channel[_channel_count] = channel;
-  _channel_count++;
+  for (int i = 0; i < _channel_count; i++) {
+    if (_channel[i] == "") {
+      _channel[i] = channel;
+      _channel_count++;
+    }
+  }
 }
 
 
@@ -154,6 +162,10 @@ bool Client::get_user_set( void ) const {
 
 bool Client::get_nick_set( void ) const {
   return _nick_set;
+}
+
+std::string *Client::get_channels( void ) {
+  return _channel;
 }
 
 int Client::get_channel_count( void ) const {

@@ -5,6 +5,7 @@
 #include <string>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <algorithm>
 
 // FOR STRING TO INT
 #include <string>
@@ -39,6 +40,7 @@ class Channel {
     void              set_topic_set   ( bool value )                ;
     void              unset_pass      ( void )                      ;
     void              unset_limit     ( void )                      ;
+    void              unset_cli       ( int cli_fd )                      ;
 
     int               check_op        ( int cli_fd )                ;
     int               check_client    ( int cli_fd )                ;

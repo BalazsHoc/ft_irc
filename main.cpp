@@ -64,8 +64,20 @@ void p_error( std::string err ) {
   std::cerr << "Error: " << err << " " << strerror(errno) << std::endl;
 }
 
-void disconnect_client( int main_fd, std::map<int, Client *> &clients, int cli_fd) {
+void disconnect_client( std::map<std::string, Channel *> &channels, int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
   printf("\n\n DISCONNECTING.. \n\n");
+  std::string *chan_arr = clients[cli_fd]->get_channels();
+  int chan_count = clients[cli_fd]->get_channel_count();
+
+  for (int i = 0; i < clients[cli_fd]->get_channel_count(); i++) {
+    printf("TRY: %s\n", chan_arr[i].c_str());
+    channels.at(chan_arr[i])->unset_cli(cli_fd);
+    if (channels.at(chan_arr[i])->get_user_count() <= 0) {
+      printf(" DELETING CHANNEL \n");
+      delete channels.at(chan_arr[i]);
+      channels.erase(chan_arr[i]);
+    }
+  }
   if (epoll_ctl(main_fd, EPOLL_CTL_DEL, cli_fd, NULL) == -1) {
     p_error("epoll_ctl() failed ");
   }
@@ -83,7 +95,7 @@ void disconnect_main( int main_fd, std::map<int, Client *> &clients, std::map<st
   for ( std::map<int, Client*>::iterator it = clients.begin(); it != clients.end(); ) {
     std::map<int, Client *>::iterator prev = it++;
     if (prev->first != main_fd)
-      disconnect_client(main_fd, clients, prev->first);
+      disconnect_client(channels, main_fd, clients, prev->first);
   }
   for ( std::map<std::string, Channel *>::iterator it = channels.begin(); it != channels.end(); ) {
     std::map<std::string, Channel *>::iterator prev = it++;
@@ -125,7 +137,7 @@ std::string space( void ) {
   return " ";
 }
 
-std::vector<std::string> buf_in( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
+std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels) {
   std::vector<std::string> ret;
 
   std::string msg = clients[cli_fd]->get_in_buf();
@@ -139,7 +151,7 @@ std::vector<std::string> buf_in( int main_fd, std::map<int, Client *> &clients, 
 
   if (i >= 510) { // a valid cmnd can't be longer then a message length without '\r\n'
     send_error(main_fd, clients, cli_fd, "ERROR :Closing Link: " + clients[cli_fd]->get_host() + " (Line too long)");
-    disconnect_client(main_fd, clients, cli_fd);
+    disconnect_client(channels, main_fd, clients, cli_fd);
     return ret ;
   }
 
@@ -250,7 +262,7 @@ int is_valid_char( std::string user ) {
 }
 
 
-int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::vector<std::string> cmnd) {
+int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::vector<std::string> cmnd, std::map<std::string, Channel *> &channels) {
   // REGISTRATION
   // TODO: what about TIMEOUT for pending registration ??
   if (cmnd.at(0) == "CAP") // for modern clients
@@ -265,7 +277,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       clients[cli_fd]->set_pass_set(true);
     else
       return send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 464 " + clients[cli_fd]->get_nick() + " :Password mismatch."),
-             disconnect_client(main_fd, clients, cli_fd), 0;
+             disconnect_client(channels, main_fd, clients, cli_fd), 0;
     if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.");
@@ -528,6 +540,7 @@ void exec_KICK( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
     return ;
   // KICK
   channels[cmnd.at(1)]->drop_client(check_client(clients, cmnd.at(2)));
+  clients.at(check_client(clients, cmnd.at(2)))->unset_channel(cmnd.at(1));
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
 }
 
@@ -634,13 +647,13 @@ void exec_other(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
 void exec_cmnd(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels) {
 
   std::vector<std::string> cmnd;
-  cmnd = buf_in(main_fd, clients, cli_fd);
+  cmnd = buf_in(main_fd, clients, cli_fd, channels);
 
   if (cmnd.empty())
     return ;
 
   printf("CMND: %s\n", cmnd.at(0).c_str());
-  int regi = registration(main_fd, clients, cli_fd, cmnd);
+  int regi = registration(main_fd, clients, cli_fd, cmnd, channels);
   if (!regi)
     return ;
   if (regi == -1)
@@ -744,7 +757,7 @@ int main( int argc, char **argv ) {
     if (n_ev == -1 && !g_signal) {
       p_error("epoll_wait() failed. ");
       // TODO: check main free channels
-      disconnect_client(main_fd, clients, main_fd);
+      disconnect_client(channels, main_fd, clients, main_fd);
       return 1 ;
     }
     for (int i = 0; i < n_ev; i++) {
@@ -788,7 +801,7 @@ int main( int argc, char **argv ) {
         // Note: still can be unread data, and still one way direction is open
         if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
           printf("HUP\n");
-          disconnect_client(main_fd, clients, cli_fd);
+          disconnect_client(channels, main_fd, clients, cli_fd);
           break ;
           // disconnect_main(main_fd, clients, channels, sockfd);
         }
@@ -806,7 +819,7 @@ int main( int argc, char **argv ) {
           n = recv(cli_fd, buf, sizeof(buf) - 1, 0);
           if (n <= 0) {
             printf("HURENSOHN\n");
-            disconnect_client(main_fd, clients, cli_fd);
+            disconnect_client(channels, main_fd, clients, cli_fd);
             continue ;
           } else {
             clients[cli_fd]->append_to_buf(buf);
@@ -817,7 +830,7 @@ int main( int argc, char **argv ) {
         } else if (events[i].events & EPOLLOUT) {
           clients[cli_fd]->send_out();
           if (clients[cli_fd]->get_out_buf().empty() && !unset_out(main_fd, clients, cli_fd))
-            disconnect_client(main_fd, clients, cli_fd);
+            disconnect_client(channels, main_fd, clients, cli_fd);
         }
       }
     }

@@ -44,6 +44,9 @@ class Client {
     bool get_nick_set( void ) const;
 
     int get_channel_count( void ) const;
+    std::string *get_channels( void ) ;
+    void  unset_channel( std::string ) ;
+
     int get_fd( void ) const;
 
     void clear_in_buf( void ) ;
