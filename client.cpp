@@ -93,12 +93,15 @@ void Client::set_channel( std::string channel ) {
     if (_channel[i] == channel)
       return ;
   }
-  for (int i = 0; i < _channel_count; i++) {
+  int i = 0;
+  while (i < _channel_count) {
     if (_channel[i] == "") {
-      _channel[i] = channel;
-      _channel_count++;
+      break ;
     }
+    i++;
   }
+  _channel[i] = channel;
+  _channel_count++;
 }
 
 

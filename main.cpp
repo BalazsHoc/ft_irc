@@ -69,6 +69,7 @@ void disconnect_client( std::map<std::string, Channel *> &channels, int main_fd,
   std::string *chan_arr = clients[cli_fd]->get_channels();
   int chan_count = clients[cli_fd]->get_channel_count();
 
+  printf("CHAN COUNT: %d\n", chan_count);
   for (int i = 0; i < clients[cli_fd]->get_channel_count(); i++) {
     printf("TRY: %s\n", chan_arr[i].c_str());
     channels.at(chan_arr[i])->unset_cli(cli_fd);
@@ -146,7 +147,7 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     return ret;
 
   printf("MSG: %s$$$ SIZE: %d\n", msg.c_str(), (int)msg.size());
-  int i = msg.find("\r\n");
+  int i = msg.find("\n");
   printf("I: %d\n", i);
 
   if (i >= 510) { // a valid cmnd can't be longer then a message length without '\r\n'
@@ -416,7 +417,7 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
         return send_error(main_fd, clients, cli_fd,":irc.ppeter 475 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad channel key.");
     }
     // NOTE: we might as well put this in set_client of channels class
-    if (channels[cmnd.at(1)]->check_client(cli_fd))
+    if (channels[cmnd.at(1)]->check_client(cli_fd) && printf("WE ARE ALREADY ON THE CHANNEL\n"))
       return ; // DO NOTHING WHEN ALREADY ON CHANNEL
     if (channels[cmnd.at(1)]->get_invite_set() && !clients[cli_fd]->check_invited(cmnd.at(1)))
       return send_error(main_fd, clients, cli_fd, ":irc:pperter.com 473 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Cannot join channel (+i).");
