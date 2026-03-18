@@ -1,6 +1,6 @@
 #include "channel.hpp"
-#include <stdexcept>
-#include <string.h>
+// #include <stdexcept>
+// #include <string.h>
 
 
 Channel::Channel ( void ) : 
@@ -196,13 +196,9 @@ int Channel::check_client( int cli_fd ) {
   if (_clients.empty())
     return 0;
   // printf("WE CHECK CLIENT AT: %d\n", cli_fd);
-  try {
-    for (std::map<int, std::string>::iterator it = _clients.begin(); it != _clients.end(); it++) {
-      if (cli_fd == it->first)
-        return 1;
-    }
-  } catch (const std::out_of_range &e) {
-    printf("\n\n\n\n\t\t\t\tWIR HABEN IHN1\n");
+  for (std::map<int, std::string>::iterator it = _clients.begin(); it != _clients.end(); it++) {
+    if (cli_fd == it->first)
+      return 1;
   }
   return 0;
 }

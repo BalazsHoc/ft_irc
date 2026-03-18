@@ -2,10 +2,9 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
+// #include <stdlib.h>
+// #include <string.h>
+// #include <strings.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/epoll.h>
@@ -22,8 +21,8 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 
-#include <unistd.h>
 #include <csignal>
 
 
@@ -62,7 +61,7 @@ void  signalHandler(int signum) {
 
 void p_error( std::string err ) {
   // TODO: strerror() can be used ???
-  std::cerr << "Error: " << err << " " << strerror(errno) << std::endl;
+  std::cerr << "Error: " << err << " " << std::strerror(errno) << std::endl;
 }
 
 void disconnect_client( std::map<std::string, Channel *> &channels, int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
@@ -827,7 +826,7 @@ int main( int argc, char **argv ) {
             clients[cli_fd]->append_to_buf(buf);
             printf("exec_cmnd: %s$$$\n", clients[cli_fd]->get_in_buf().c_str());
             exec_cmnd(main_fd, clients, cli_fd, channels);
-            memset(buf, 0, sizeof(buf));
+            std::fill(buf, buf + sizeof(buf), 0);
           }
         } else if (events[i].events & EPOLLOUT) {
           clients[cli_fd]->send_out();
