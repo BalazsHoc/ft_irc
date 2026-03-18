@@ -1,5 +1,5 @@
 CXX = c++
-CXXFLAGS = -g #-Wall -Wextra -Werror -std=c++98 -MMD
+CXXFLAGS = -g -Wall -Wextra -Werror -std=c++98 -MMD
 
 NAME = ft_irc
 

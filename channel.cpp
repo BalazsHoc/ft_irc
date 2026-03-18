@@ -3,7 +3,12 @@
 #include <string.h>
 
 
-Channel::Channel ( void ) {
+Channel::Channel ( void ) : 
+  _pass_set(false),
+  _invite_set(false),
+  _topic_set(true),
+  _limit(200),
+  _user_count(0) {
 
 }
 

@@ -5,6 +5,9 @@
 #include <algorithm>
 #include "channel.hpp"
 
+// TODO: delete later
+#include <cstdio>
+
 class Client {
 
   public:
@@ -63,14 +66,14 @@ class Client {
 
   private:
 
-    bool  _pass_set = 0; // has correct password ?
-    bool  _regi_set = 0; // is he already registered?
+    bool  _pass_set; //  = false; // has correct password ?
+    bool  _regi_set; // = false; // is he already registered?
 
-    bool  _user_set = 0; // user / nick / passw
-    bool  _nick_set = 0;
+    bool  _user_set; // = false; // user / nick / passw
+    bool  _nick_set; // = false;
 
-    int   _channel_count = 0;
-    int   _channel_limit = 20;
+    int   _channel_count; // = 0;
+    int   _channel_limit; // = 20;
     int   _cli_fd;
 
     std::string _nick;

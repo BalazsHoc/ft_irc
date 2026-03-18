@@ -15,6 +15,8 @@
 #include <ctime>
 
 
+// TODO: delete later
+#include <cstdio>
 
 
 
@@ -63,9 +65,9 @@ class Channel {
 
   private:
 
-    bool          _pass_set = false;
-    bool          _invite_set = false;
-    bool          _topic_set = true;
+    bool          _pass_set; //false
+    bool          _invite_set; // false
+    bool          _topic_set; // true
     
 
     std::string   _topic;
@@ -74,8 +76,8 @@ class Channel {
     std::string   _pass;
     std::string   _channel_name; // not needed just for debugging left
 
-    size_t        _limit = 200;
-    size_t        _user_count = 0;
+    int        _limit; // 200
+    int        _user_count; // 0
 
     time_t        _timestamp; // topic
 

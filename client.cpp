@@ -2,7 +2,14 @@
 
 
 
-Client::Client ( int cli_fd ) : _cli_fd(cli_fd) {
+Client::Client ( int cli_fd ) : 
+  _pass_set(false),
+  _regi_set(false),
+  _user_set(false),
+  _nick_set(false),
+  _channel_count(0),
+  _channel_limit(20),
+  _cli_fd(cli_fd) {
   _nick = "*";
   _channel_count = 0;
 }

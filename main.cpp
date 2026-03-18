@@ -21,6 +21,7 @@
 #include "channel.hpp"
 #include <algorithm>
 #include <cerrno>
+#include <cstdio>
 
 #include <unistd.h>
 #include <csignal>
@@ -110,7 +111,7 @@ void disconnect_main( int main_fd, std::map<int, Client *> &clients, std::map<st
     close(sock_fd);
 }
 
-void set_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
+void set_out( int main_fd, int cli_fd ) {
   struct epoll_event ev;
   ev.data.fd = cli_fd;
   ev.events = EPOLLIN | EPOLLRDHUP | EPOLLOUT;
@@ -118,7 +119,7 @@ void set_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
     p_error("epoll_ctl() failed ");
 }
 
-int unset_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
+int unset_out( int main_fd, int cli_fd ) {
   struct epoll_event ev;
   ev.data.fd = cli_fd;
   ev.events = EPOLLIN | EPOLLRDHUP;
@@ -130,7 +131,7 @@ int unset_out( int main_fd, std::map<int, Client *> &clients, int cli_fd ) {
 void send_error( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::string error) {
   printf("APPEND RESPONSE: %s$$$\n", error.c_str());
   clients[cli_fd]->set_out_buf(error);
-  set_out(main_fd, clients, cli_fd);
+  set_out(main_fd, cli_fd);
 }
 
 
@@ -147,7 +148,7 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     return ret;
 
   printf("MSG: %s$$$ SIZE: %d\n", msg.c_str(), (int)msg.size());
-  int i = msg.find("\n");
+  int i = msg.find("\r\n");
   printf("I: %d\n", i);
 
   if (i >= 510) { // a valid cmnd can't be longer then a message length without '\r\n'
@@ -156,7 +157,7 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     return ret ;
   }
 
-  if (i < 0 || i == std::string::npos) // not a valid line we 'wait' till next packet arrives
+  if (i < 0 || i == (int)std::string::npos) // not a valid line we 'wait' till next packet arrives
     return ret;
 
   printf("I: %d\n", i);
@@ -165,13 +166,13 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
   std::string buf;
 
   while (std::getline(ss, buf, ' ')) {
-    printf("PUSHED: %s$$$\n", buf.c_str());
+    std::printf("PUSHED: %s$$$\n", buf.c_str());
     ret.push_back(buf);
   }
 
   int j = -1;
   int flag = 0;
-  while (!ret.empty() && ++j < ret.size() - 1) {
+  while (!ret.empty() && ++j < (int)ret.size() - 1) {
     if (ret.at(j)[0] == ':') {
       flag = 1;
       break ;
@@ -181,7 +182,7 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
   std::string trailing;
   int k = j;
 
-  while (flag && k < ret.size()) {
+  while (flag && k < (int)ret.size()) {
     if (k != j)
       trailing += space();
     trailing += ret.at(k++);
@@ -199,12 +200,12 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     ret.push_back(trailing);
   }
 
-  for ( int i = 0; i < ret.size(); i++)
+  for ( int i = 0; i < (int)ret.size(); i++)
     printf("RET: %s\n", ret.at(i).c_str());
 
   // rest of msg in buf;
   i += 2;
-  if (i < msg.size()) {
+  if (i < (int)msg.size()) {
     std::string another_buf = msg.substr(i, msg.size() - (i - 2));
     clients[cli_fd]->set_in_buf(another_buf);
   } else
@@ -247,7 +248,7 @@ int is_special ( char c ) {
 int is_valid_nick( std::string nick ) {
   if (!is_alpha(nick.at(0)))
     return 0;
-  for (int i = 1; i < nick.size(); i++) {
+  for (int i = 1; i < (int)nick.size(); i++) {
     if (!is_alpha(nick.at(i)) && !is_special(nick.at(i)) && !is_num(nick.at(i)))
       return 0;
   }
@@ -255,7 +256,7 @@ int is_valid_nick( std::string nick ) {
 }
 
 int is_valid_char( std::string user ) {
-  for (int i = 1; i < user.size(); i++) {
+  for (int i = 1; i < (int)user.size(); i++) {
     if (user.at(i) == '\r' || user.at(i) == '\n' || user.at(i) == '\0')
       return 0;
   }
@@ -273,7 +274,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 462 " + clients[cli_fd]->get_nick() + " :Already registered.");
     else if (!is_valid_char(cmnd.at(1)))
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.");
-    else if (cmnd.size() > 1 && cmnd.at(1) == clients[main_fd]->get_user())
+    else if ((int)cmnd.size() > 1 && cmnd.at(1) == clients[main_fd]->get_user())
       // PASS COMPLETE
       clients[cli_fd]->set_pass_set(true);
     else
@@ -303,7 +304,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
     }
   } else if (cmnd.at(0) == "NICK") {
     if (cmnd.size() > 1) { // TODO: CHECK IF CORRECT ORDER WHEN CHECKING CMND.SIZE()
-      if (!is_valid_nick(cmnd.at(1)))
+      if (!is_valid_nick(cmnd.at(1)) && printf("NICK: %s$$$\n", cmnd.at(1).c_str()))
         send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 432 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Erroneous nickname.");
       else if (nick_available(clients, cmnd.at(1))) {
         // NICK COMPLETE
@@ -331,7 +332,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
 
 int valid_chars( std::string str ) {
 
-  for (int i = 0; i < str.size(); i++) {
+  for (int i = 0; i < (int)str.size(); i++) {
     if (str.at(i) <= 32 || str.at(i) >= 127 || str.at(i) == ',' || str.at(i) == ':')
       return 0;
   }
@@ -430,7 +431,7 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
   } catch (const std::out_of_range &e) {
     // CREATES & JOINS THE CHANNEL AS OP
     Channel *new_one = new Channel();
-    channels.emplace(cmnd.at(1), new_one);
+    channels[cmnd.at(1)] = new_one;
     new_one->set_client(cli_fd, clients[cli_fd]->get_nick());
     clients[cli_fd]->set_channel(cmnd.at(1));
     new_one->set_name(cmnd.at(1));
@@ -438,10 +439,10 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
   }
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
   if (channels[cmnd.at(1)]->get_topic() != "") {
-    send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic()), 0;
+    send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic());
     // send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_setter_nick() + space() + channels.at(cmnd.at(1))->get_topic_timestamp(), 0), 0;
   } else
-    send_error(main_fd, clients, cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set"), 0;
+    send_error(main_fd, clients, cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set");
   send_error(main_fd, clients, cli_fd, send_annoying_error(":irc.ppeter 353 " + clients[cli_fd]->get_nick() + space() + "=" + space() + cmnd.at(1) + space() + ":", names_list(channels[cmnd.at(1)]), ""));
   send_error(main_fd, clients, cli_fd,":irc.ppeter 366 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :End of /NAMES list");
 }
@@ -676,10 +677,10 @@ int main( int argc, char **argv ) {
   sa.sa_handler = SIG_IGN;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
-  sigaction(SIGPIPE, &sa, nullptr);
+  sigaction(SIGPIPE, &sa, NULL);
 
-  struct sockaddr_in serv_addr{};
-  struct sockaddr_in client_addr{};
+  struct sockaddr_in serv_addr = {};
+  struct sockaddr_in client_addr = {};
 
   std::map<int, Client *> clients;
 
@@ -704,7 +705,7 @@ int main( int argc, char **argv ) {
     return 1;
   }
   Client *non_client = new Client(main_fd);
-  clients.emplace(main_fd, non_client);
+  clients[main_fd] = non_client;
   clients[main_fd]->set_user(pass);
 
   // connection-less socket means [ like UDP ]:
@@ -781,7 +782,7 @@ int main( int argc, char **argv ) {
           }
           Client *new_one = new Client(cli_sock);
           new_one->set_host(client_addr.sin_addr.s_addr);
-          clients.insert({cli_sock, new_one});
+          clients[cli_sock] = new_one;
         }
       } else {
         int cli_fd = events[i].data.fd;
@@ -830,7 +831,7 @@ int main( int argc, char **argv ) {
           }
         } else if (events[i].events & EPOLLOUT) {
           clients[cli_fd]->send_out();
-          if (clients[cli_fd]->get_out_buf().empty() && !unset_out(main_fd, clients, cli_fd))
+          if (clients[cli_fd]->get_out_buf().empty() && !unset_out(main_fd, cli_fd))
             disconnect_client(channels, main_fd, clients, cli_fd);
         }
       }
