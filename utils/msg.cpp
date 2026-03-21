@@ -34,10 +34,11 @@ std::vector<std::string> names_list( Channel *channel ) {
 
 std::string send_from_cmnd( std::string msg_part_1, std::vector<std::string> middle_msgs, std::string msg_part_2 ) {
   std::vector<std::string>::iterator next_one;
+  msg_part_1.append(space());
   for (std::vector<std::string>::iterator it = middle_msgs.begin(); it != middle_msgs.end(); it++ ) {
     next_one = it + 1;
     if (it != middle_msgs.begin() && next_one != middle_msgs.end())
-      msg_part_1.append(*it);
+      msg_part_1.append(*it + space());
   }
   if (!msg_part_2.empty())
     msg_part_1.append(msg_part_2);

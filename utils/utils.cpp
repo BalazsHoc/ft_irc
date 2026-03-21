@@ -26,6 +26,7 @@ int unset_out( int main_fd, int cli_fd ) {
 }
 
 void send_error( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::string error) {
+  printf("SEND: %s\n", error.c_str());
   clients[cli_fd]->set_out_buf(error);
   set_out(main_fd, cli_fd);
 }
