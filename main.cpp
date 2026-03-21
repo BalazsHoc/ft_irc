@@ -68,6 +68,9 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     ret.push_back(trailing);
   }
 
+  for ( int i = 0; i < (int)ret.size(); i++)
+    printf("RET: %s\n", ret.at(i).c_str());
+
   // rest of msg in buf;
   i += 2;
   if (i < (int)msg.size()) {
@@ -84,6 +87,8 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
   // TODO: what about TIMEOUT for pending registration ??
   if (cmnd.at(0) == "CAP") // for modern clients
     send_error(main_fd, clients, cli_fd, ":irc.ppeter.com CAP * LS :");
+  if (cmnd.at(0) == "PING" && cmnd.size() > 1) // for modern clients
+    send_error(main_fd, clients, cli_fd, ":irc.ppeter.com PONG :" + cmnd.at(1));
   else if (cmnd.at(0) == "PASS") {
     if (clients[cli_fd]->get_pass_set())
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 462 " + clients[cli_fd]->get_nick() + " :Already registered.");
