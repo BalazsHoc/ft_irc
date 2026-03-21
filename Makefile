@@ -1,7 +1,7 @@
 CXX = c++
 CXXFLAGS = -g -Wall -Wextra -Werror -std=c++98 -MMD
 
-NAME = ft_irc
+NAME = ircserv
 
 SRCS = $(wildcard *.cpp */*.cpp)
 
