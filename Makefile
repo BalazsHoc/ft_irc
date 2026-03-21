@@ -3,7 +3,7 @@ CXXFLAGS = -g -Wall -Wextra -Werror -std=c++98 -MMD
 
 NAME = ft_irc
 
-SRCS = main.cpp client.cpp channel.cpp
+SRCS = $(wildcard *.cpp */*.cpp)
 
 OBJ = $(SRCS:.cpp=.o)
 DEP = $(OBJ:.o=.d)

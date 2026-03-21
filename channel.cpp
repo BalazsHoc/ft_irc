@@ -182,9 +182,10 @@ int Channel::check_op( int cli_fd ) {
 void Channel::unset_cli ( int cli_fd ) {
   _clients.erase(cli_fd);
   std::map<int, std::string>::iterator it = _ops.find(cli_fd);
-  if (it != _ops.end())
+  if (it != _ops.end()) {
     _ops.erase(cli_fd);
-  _user_count--;
+    _user_count--;
+  }
   printf("unser_cli USER COUNT: %d\n", (int)_user_count);
   // NOTE: delete outside not inside
   // if ( _user_count <= 0 )

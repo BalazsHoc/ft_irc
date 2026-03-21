@@ -1,7 +1,5 @@
 #include "client.hpp"
 
-
-
 Client::Client ( int cli_fd ) : 
   _pass_set(false),
   _regi_set(false),
@@ -13,11 +11,6 @@ Client::Client ( int cli_fd ) :
   _nick = "*";
   _channel_count = 0;
 }
-
-
-// Client::Client ( Client & orig ) : _user(orig._user), _channel(orig._channel), _in_buf(orig._in_buf) {}
-
-// Client::Client & operator = ( Client & orig );
 
 Client::~Client ( ) {
 }
@@ -65,7 +58,6 @@ std::string Client::get_out_buf( void ) {
 }
 
 void Client::send_out ( void ) {
-  printf("\n\t\t\t\tSENDIN TO %d: %s$$$\n\n", _cli_fd, _out_buf.c_str());
   int n = send(_cli_fd, _out_buf.c_str(), _out_buf.size(), MSG_NOSIGNAL);
   if (n > 0)
     _out_buf.erase(0, n);
@@ -126,7 +118,7 @@ bool Client::check_invited( std::string channel ) {
     }
   }
   catch (const std::exception &e) {
-    printf("\n\n\n\n\t\t\t\tWIR HABEN IHN2\n");
+    // debugging
   }
   return 0;
 }
@@ -151,9 +143,6 @@ std::string Client::get_nick( void ) {
 std::string Client::get_prefix( void ) {
   std::string ret;
 
-  // printf("NICK: %s\n", _nick.c_str());
-  // printf("USER: %s\n", _user.c_str());
-  // printf("HOST: %s\n", _host.c_str());
   ret = ":" + _nick + "!~" + _user + "@" + _host;
   return ret;
 }
@@ -187,6 +176,5 @@ int Client::get_fd( void ) const {
 }
 
 void Client::set_invite( std::string channel ) {
-  printf("SET INVITE FOR %s channel: %s\n", get_nick().c_str(), channel.c_str());
   _invited.push_back(channel);
 }
