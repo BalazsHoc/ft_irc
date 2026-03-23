@@ -1,6 +1,4 @@
 #include "channel.hpp"
-// #include <stdexcept>
-// #include <string.h>
 
 
 Channel::Channel ( void ) : 
@@ -122,7 +120,6 @@ bool Channel::set_limit( std::string limit ) {
 void Channel::set_client( int cli_fd, std::string name ) {
   _clients[cli_fd] = name;
   _user_count++;
-  printf("USER COUNT++: %d\n", (int)_user_count);
 }
 
 void Channel::drop_client( int cli_fd ) {
@@ -131,10 +128,6 @@ void Channel::drop_client( int cli_fd ) {
     if (it->first == cli_fd) {
       _clients.erase(it);
       _user_count--;
-      // NOTE: delete outside not inside
-      // if (_user_count <= 0)
-      //   delete this ;
-      printf("drop_cli USER COUNT: %d\n", (int)_user_count);
       return ;
     }
   }
@@ -146,7 +139,6 @@ void Channel::set_invite_set( bool value ) {
 
 
 void Channel::set_topic_set( bool value ) {
-  printf("PRINT OUT THE BOOL WE SET: %d\n", value);
   _topic_set = value;
 }
 
@@ -158,7 +150,6 @@ void Channel::set_op( int cli_fd, std::string name, int set) {
 }
 
 bool Channel::get_topic_set( void ) {
-  printf("PRINT OUT THE BOOL WE GET: %d\n", _topic_set);
   return _topic_set;
 }
 
@@ -186,17 +177,12 @@ void Channel::unset_cli ( int cli_fd ) {
     _ops.erase(cli_fd);
     _user_count--;
   }
-  printf("unser_cli USER COUNT: %d\n", (int)_user_count);
-  // NOTE: delete outside not inside
-  // if ( _user_count <= 0 )
-  //   delete this;
 }
 
 int Channel::check_client( int cli_fd ) {
   // OR USE FIND WHATEVER.
   if (_clients.empty())
     return 0;
-  // printf("WE CHECK CLIENT AT: %d\n", cli_fd);
   for (std::map<int, std::string>::iterator it = _clients.begin(); it != _clients.end(); it++) {
     if (cli_fd == it->first)
       return 1;

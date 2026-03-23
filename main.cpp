@@ -206,13 +206,15 @@ int main( int argc, char **argv ) {
   cli_len = sizeof(client_addr);
 
   int port;
-  port = atoi(argv[1]);
-  if (port < 1024 || port > 65535)
-    return p_error("Invalid port number."), 0;
+  port = ft_atoi(argv[1]);
+  if (port == 0)
+    return perror("No valid port."), 0;
   port = htons(port);
 
   int main_fd, sockfd;
   std::string pass = argv[2];
+  if (!is_valid_char(pass))
+    return perror("No valid pass."), 0;
 
   std::map<std::string, Channel *>channels;
 

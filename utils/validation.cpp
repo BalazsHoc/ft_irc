@@ -24,7 +24,7 @@ int is_special ( char c ) {
 }
 
 int is_valid_nick( std::string nick ) {
-  if (!is_alpha(nick.at(0)))
+  if (nick.empty() || !is_alpha(nick.at(0)))
     return 0;
   for (int i = 1; i < (int)nick.size(); i++) {
     if (!is_alpha(nick.at(i)) && !is_special(nick.at(i)) && !is_num(nick.at(i)))

@@ -39,6 +39,7 @@
 
 std::string     space( void );
 void            p_error( std::string err );
+int             ft_atoi( char *str );
 void            set_out( int main_fd, int cli_fd );
 int             unset_out( int main_fd, int cli_fd );
 void            send_error( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::string error);
