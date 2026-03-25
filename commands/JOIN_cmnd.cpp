@@ -32,8 +32,7 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
   }
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
   if (channels[cmnd.at(1)]->get_topic() != "") {
-    send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + ":" + channels[cmnd.at(1)]->get_topic());
-    // send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_setter_nick() + space() + channels.at(cmnd.at(1))->get_topic_timestamp(), 0), 0;
+    send_error(main_fd, clients, cli_fd,":irc.ppeter 332 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + channels[cmnd.at(1)]->get_topic());
   } else
     send_error(main_fd, clients, cli_fd,":irc.ppeter 331 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :No topic is set");
   send_error(main_fd, clients, cli_fd, send_annoying_error(":irc.ppeter 353 " + clients[cli_fd]->get_nick() + space() + "=" + space() + cmnd.at(1) + space() + ":", names_list(channels[cmnd.at(1)]), ""));

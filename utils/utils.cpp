@@ -17,6 +17,8 @@ int ft_atoi( char *str ) {
 
   if (end == str)
     return p_error("Invalid port number."), 0;
+  while (*end == ' ' || *end == '\t')
+    ++end;
   if (*end != '\0')
     return p_error("Invalid port number."), 0;
   if ((errno == ERANGE && (tmp == LONG_MAX || tmp == LONG_MIN)) || tmp < INT_MIN || tmp > INT_MAX)
