@@ -206,9 +206,9 @@ int main( int argc, char **argv ) {
   cli_len = sizeof(client_addr);
 
   int port;
-  port = ft_atoi(argv[1]);
+  port = valid_port(argv[1]);
   if (port == 0)
-    return perror("No valid port."), 0;
+    return p_error("No valid port."), 0;
   port = htons(port);
 
   int main_fd, sockfd;
