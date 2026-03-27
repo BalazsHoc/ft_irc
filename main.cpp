@@ -209,7 +209,7 @@ int main( int argc, char **argv ) {
   int main_fd, sockfd;
   std::string pass = argv[2];
   if (!is_valid_char(pass))
-    return perror("No valid pass."), 0;
+    return p_error("No valid pass."), 0;
 
   std::map<std::string, Channel *>channels;
 
