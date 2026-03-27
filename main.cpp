@@ -253,7 +253,7 @@ int main( int argc, char **argv ) {
     return 1;
   }
 
-  char buf[513];
+  char buf[512];
 
   while(!g_signal) {
     int n_ev = epoll_wait(main_fd, events, MAX_EPOLL_EVENTS, -1);
@@ -303,9 +303,8 @@ int main( int argc, char **argv ) {
             disconnect_client(channels, main_fd, clients, cli_fd);
             continue ;
           } else {
-            buf[n] = 0;
             if (clients.at(cli_fd))
-              clients.at(cli_fd)->append_to_buf(buf);
+              clients.at(cli_fd)->append_to_buf(std::string(buf, n));
             exec_cmnd(main_fd, clients, cli_fd, channels);
             std::fill(buf, buf + sizeof(buf), 0);
           }
