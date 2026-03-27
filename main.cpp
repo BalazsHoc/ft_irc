@@ -23,6 +23,7 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
 
   if (i >= 510) { // a valid cmnd can't be longer then a message length without '\r\n'
     send_error(main_fd, clients, cli_fd, "ERROR :Closing Link: " + clients[cli_fd]->get_host() + " (Line too long)");
+    clients[cli_fd]->send_out();
     disconnect_client(channels, main_fd, clients, cli_fd);
     return ret ;
   }
