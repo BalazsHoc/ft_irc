@@ -285,13 +285,11 @@ int main( int argc, char **argv ) {
       } else {
         int cli_fd = events[i].data.fd;
 
-
         uint32_t ev = events[i].events;
         if (ev & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
           disconnect_client(channels, main_fd, clients, cli_fd);
           break ;
         }
-
 
         int n = -1;
         if (g_signal) {
@@ -299,12 +297,14 @@ int main( int argc, char **argv ) {
           return 1;
         }
         if (events[i].events & EPOLLIN) {
-          n = recv(cli_fd, buf, sizeof(buf) - 1, 0);
+          n = recv(cli_fd, buf, 512, 0);
           if (n <= 0) {
             disconnect_client(channels, main_fd, clients, cli_fd);
             continue ;
           } else {
-            clients[cli_fd]->append_to_buf(buf);
+            buf[n] = 0;
+            if (clients.at(cli_fd))
+              clients.at(cli_fd)->append_to_buf(buf);
             exec_cmnd(main_fd, clients, cli_fd, channels);
             std::fill(buf, buf + sizeof(buf), 0);
           }
