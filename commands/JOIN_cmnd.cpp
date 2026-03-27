@@ -10,7 +10,6 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
       if (cmnd.size() <= 2 || channels[cmnd.at(1)]->get_pass() != cmnd.at(2))
         return send_error(main_fd, clients, cli_fd,":irc.ppeter 475 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad channel key.");
     }
-    // NOTE: we might as well put this in set_client of channels class
     if (channels[cmnd.at(1)]->check_client(cli_fd))
       return ; // DO NOTHING WHEN ALREADY ON CHANNEL
     if (channels[cmnd.at(1)]->get_invite_set() && !clients[cli_fd]->check_invited(cmnd.at(1)))
@@ -18,7 +17,6 @@ void exec_JOIN(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::v
     if (channels[cmnd.at(1)]->get_user_count() >= channels[cmnd.at(1)]->get_limit())
       return send_error(main_fd, clients, cli_fd, ":irc:pperter.com 471 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Channel is full.");
     // JOINS THE CHANNEL
-    // NOTE: WE REGISTER IN BOTH BUT IS THIS REALLY NECESSARY ??
     clients[cli_fd]->set_channel(cmnd.at(1));
     channels[cmnd.at(1)]->set_client(cli_fd, clients[cli_fd]->get_nick());
   } catch (const std::out_of_range &e) {

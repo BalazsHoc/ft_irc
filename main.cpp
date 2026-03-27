@@ -2,8 +2,6 @@
 
 volatile sig_atomic_t g_signal = 0;
 
-// TODO: check for invalid access through wrong key in any map.
-// TODO: check const correctness
 
 void  signalHandler(int signum) {
   if (signum == SIGINT) {
@@ -68,9 +66,6 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
     ret.push_back(trailing);
   }
 
-  for ( int i = 0; i < (int)ret.size(); i++)
-    printf("RET: %s\n", ret.at(i).c_str());
-
   // rest of msg in buf;
   i += 2;
   if (i < (int)msg.size()) {
@@ -84,7 +79,6 @@ std::vector<std::string> buf_in(int main_fd, std::map<int, Client *> &clients, i
 
 int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::vector<std::string> cmnd, std::map<std::string, Channel *> &channels) {
   // REGISTRATION
-  // TODO: what about TIMEOUT for pending registration ??
   if (cmnd.at(0) == "CAP") // for modern clients
     send_error(main_fd, clients, cli_fd, ":irc.ppeter.com CAP * LS :");
   if (cmnd.at(0) == "PING" && cmnd.size() > 1) // for modern clients
@@ -121,7 +115,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.");
     }
   } else if (cmnd.at(0) == "NICK") {
-    if (cmnd.size() > 1) { // TODO: CHECK IF CORRECT ORDER WHEN CHECKING CMND.SIZE()
+    if (cmnd.size() > 1) {
       if (!is_valid_nick(cmnd.at(1)))
         send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 432 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Erroneous nickname.");
       else if (nick_available(clients, cmnd.at(1))) {
@@ -147,7 +141,6 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
 
 void exec_other(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
 
-  // NOTE: ORIGINALLY THIS SHOULD BE INSIDE EVERY COMMAND AFTER BASIC COMMAND COMPATIBILITY IS CHECKED, BUT.. WHO CARES.
   if (cmnd.size() <= 1)
     return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
   if (cmnd.at(0) == "JOIN") {
@@ -173,6 +166,8 @@ void exec_cmnd(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::m
   if (cmnd.empty())
     return ;
 
+  if (!is_valid_cmnd(cmnd.at(0)))
+    return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 421 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Unknown command.").c_str());
   int regi = registration(main_fd, clients, cli_fd, cmnd, channels);
   if (!regi)
     return ;

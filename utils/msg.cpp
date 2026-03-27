@@ -3,7 +3,6 @@
 void broadcast( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   std::string channel = cmnd.at(1);
   std::map<int, std::string> channel_clients = channels[channel]->get_clients();
-  // TODO: check for all instances like all commands + flags if this broadcast is working with cmnd.size() stuff
   for (std::map<int, std::string>::iterator it = channel_clients.begin(); it != channel_clients.end(); it++) {
     if (cmnd.size() == 4)
       send_error(main_fd, clients, it->first, clients[cli_fd]->get_prefix() + space() + cmnd.at(0) + space() + cmnd.at(1) + space() + cmnd.at(2) + space() + cmnd.at(3));

@@ -28,7 +28,6 @@ std::string current_modes(Channel *channel) {
 void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::vector<std::string> cmnd) {
   if (!check_channel(main_fd, clients, cli_fd, channels, cmnd.at(1)))
     return ;
-  // TODO: CHECK ORDER WITH EACH INDIVIDUAL 'Not enought parameters.'
   if (cmnd.size() == 2)
       return send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 324 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + space() + current_modes(channels.at(cmnd.at(1))));
   if (!check_op(main_fd, clients, cli_fd, channels, cmnd.at(1)))
@@ -47,9 +46,11 @@ void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
   } else if ( cmnd.at(2) == "+k" || cmnd.at(2) == "-k") {
     if (cmnd.at(2) == "+k" && cmnd.size() != 4)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
-    else if (cmnd.at(2) == "-k" && cmnd.size() != 3 && printf("FUCK THIS SHIT\n"))
+    else if (cmnd.at(2) == "-k" && cmnd.size() != 3)
       return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.").c_str());
     if (cmnd.at(2) == "+k") {
+      if (!is_valid_char(cmnd.at(2)))
+        return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 475 " + clients[cli_fd]->get_nick() + space() + cmnd.at(1) + " :Bad channel key.").c_str());
       channels[cmnd.at(1)]->set_pass(cmnd.at(3));
       cmnd.at(3) = "*";
     } else
@@ -62,7 +63,7 @@ void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
     if (!channels[cmnd.at(1)]->check_client(check_client(clients, cmnd.at(3))))
       return ;
     // SET OP
-    if (cmnd.at(2) == "+o") // TODO: do we need to check_client()???
+    if (cmnd.at(2) == "+o")
       channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3), 1);
     else // UNSET OP
       channels[cmnd.at(1)]->set_op(check_client(clients, cmnd.at(3)), cmnd.at(3), 0);
@@ -76,6 +77,6 @@ void exec_MODE( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
     else if (cmnd.at(2) == "-l")
       channels[cmnd.at(1)]->unset_limit();
   } else
-    return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 472 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Unknown mode.").c_str());
+    return send_error(main_fd, clients, cli_fd, (":irc.ppeter.com 472 " + clients[cli_fd]->get_nick() + space() + cmnd.at(2) + " :Unknown mode.").c_str());
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
 }

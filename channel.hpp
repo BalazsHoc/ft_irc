@@ -5,18 +5,10 @@
 #include <string>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <algorithm>
-
-// FOR STRING TO INT
-#include <string>
 #include <cerrno>
 #include <cstdlib>
 #include <climits>
 #include <ctime>
-
-
-// TODO: delete later
-#include <cstdio>
 
 
 
@@ -25,7 +17,8 @@ class Channel {
   public:
 
     Channel( void );
-
+    // Channel ( Channel & orig );
+    // Channel & operator = ( Channel & orig );
     ~Channel( );
 
 

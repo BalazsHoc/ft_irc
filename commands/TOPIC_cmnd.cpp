@@ -11,10 +11,6 @@ void exec_TOPIC( int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
   } else if (cmnd.size() >= 3) { // WE WANT TO SET THE TOPIC
     if (channels[cmnd[1]]->get_topic_set() && !check_op(main_fd, clients, cli_fd, channels, cmnd.at(1)))
       return ;
-    // TODO: don't erase the ':'
-    // if (cmnd.at(2)[0] == ':')
-    //   cmnd.at(2).erase(0, 1);
-    // WE SET THE TOPIC
     channels[cmnd.at(1)]->set_topic(cmnd.at(2), clients[cli_fd]->get_nick());
     broadcast(main_fd, clients, cli_fd, channels, cmnd);
   }

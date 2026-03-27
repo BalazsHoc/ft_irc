@@ -5,8 +5,6 @@
 #include <algorithm>
 #include "channel.hpp"
 
-// TODO: delete later
-#include <cstdio>
 
 class Client {
 

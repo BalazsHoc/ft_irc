@@ -5,7 +5,6 @@
 #include <asm-generic/socket.h>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 #include <netinet/in.h>
 #include <poll.h>
 #include <sys/epoll.h>
@@ -17,11 +16,9 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
-
 #include <csignal>
 
 
@@ -58,6 +55,7 @@ int             is_special ( char c );
 int             is_valid_nick( std::string nick );
 int             is_valid_char( std::string user );
 int             valid_chars( std::string str );
+int             is_valid_cmnd( std::string str );
 
 //  check_class.cpp
 

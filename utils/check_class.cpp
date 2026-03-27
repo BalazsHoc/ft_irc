@@ -14,7 +14,6 @@ int check_channel(int main_fd, std::map<int, Client *> &clients, int cli_fd, std
 }
 
 int check_op(int main_fd, std::map<int, Client *> &clients, int cli_fd, std::map<std::string, Channel *> &channels, std::string channel) {
-  // NOTE: not really needed as we check always before; still can keep just to be extra safe. alternative could be to put this in an extra try and catch block
   if (!check_channel(main_fd, clients, cli_fd, channels, channel))
       return 0;
   if (!channels.at(channel)->check_op(cli_fd))

@@ -57,7 +57,10 @@ time_t Channel::get_topic_timestamp( void ) const {
 }
 
 void Channel::set_pass( std::string pass ) {
-  _pass = pass;
+  if (pass.at(0) == ':')
+    _pass = pass.substr(1);
+  else
+    _pass = pass;
   _pass_set = true;
 }
 

@@ -35,7 +35,7 @@ int is_valid_nick( std::string nick ) {
 
 int is_valid_char( std::string user ) {
   for (int i = 1; i < (int)user.size(); i++) {
-    if (user.at(i) == '\r' || user.at(i) == '\n' || user.at(i) == '\0')
+    if (user.at(i) == '\r' || user.at(i) == '\n' || user.at(i) == '\0' || user.at(i) == ' ')
       return 0;
   }
   return 1;
@@ -48,4 +48,11 @@ int valid_chars( std::string str ) {
       return 0;
   }
   return 1;
+}
+
+int is_valid_cmnd( std::string str ) {
+  if (str == "INVITE" || str == "KICK" || str == "MODE" || str == "JOIN"
+      || str == "PASS" || str == "USER" || str == "NICK" || str == "PRIVMSG" || str == "TOPIC" || str == "PING" || str == "CAP" || str == "WHO")
+    return 1;
+  return 0;
 }

@@ -10,6 +10,8 @@ void exec_KICK( int main_fd, std::map<int, Client *> &clients, int cli_fd, std::
   if (!check_op(main_fd, clients, cli_fd, channels, cmnd.at(1)))
     return ;
   // KICK
+  if (cmnd.size() > 3)
+    cmnd.at(3) = cmnd.at(3).substr(1);
   broadcast(main_fd, clients, cli_fd, channels, cmnd);
   channels[cmnd.at(1)]->drop_client(check_client(clients, cmnd.at(2)));
   clients.at(check_client(clients, cmnd.at(2)))->unset_channel(cmnd.at(1));
