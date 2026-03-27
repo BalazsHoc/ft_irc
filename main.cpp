@@ -97,7 +97,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
              disconnect_client(channels, main_fd, clients, cli_fd), 0;
     if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
-      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.");
+      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome !!");
     }
   } else if (cmnd.at(0) == "USER") {
     // USER <username> <hostname> <servername> :<realname>
@@ -113,7 +113,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.");
     if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
-      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.");
+      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome !!");
     }
   } else if (cmnd.at(0) == "NICK") {
     if (cmnd.size() > 1) {
@@ -131,7 +131,7 @@ int registration(int main_fd, std::map<int, Client *> &clients, int cli_fd, std:
       send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 461 " + clients[cli_fd]->get_nick() + space() + cmnd.at(0) + " :Not enough parameters.");
     if (clients[cli_fd]->get_nick_set() && clients[cli_fd]->get_pass_set() && clients[cli_fd]->get_user_set() && !clients[cli_fd]->get_regi_set()) {
       clients[cli_fd]->set_regi_set(true);
-      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome dickhead.");
+      send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 001 " + clients[cli_fd]->get_nick() + " :Welcome !!");
     }
   } else if (!clients[cli_fd]->get_regi_set())
     return send_error(main_fd, clients, cli_fd, ":irc.ppeter.com 451 " + clients[cli_fd]->get_nick() + " :You have not registered."), 1;
